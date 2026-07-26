@@ -1,11 +1,17 @@
-# harness-init
+<p align="center">
+  <img src="assets/logo.svg" width="120" alt="harness-init">
+</p>
+
+<h1 align="center">harness-init</h1>
+
+<p align="center"><em>A task is done when the gate exits 0 — never on a verbal claim.</em></p>
 
 Claude Code skill that scaffolds a Level-3 Harness Engineering setup into any project:
 frozen SPEC, RULES, role SOPs, a master validation gate, and a three-track multi-agent
 workflow (solo / fast / full).
 
-Core idea: **the human owns the harness, the AI writes the code.** A task is done when
-`harness/validate.sh` exits 0 — never on a verbal claim.
+Core idea: **the human owns the harness, the AI writes the code.** The harness is the
+durable asset — it lives in git, not in chat memory.
 
 ## Install
 
