@@ -1,0 +1,75 @@
+#!/usr/bin/env bash
+# Master validation gate — the objective judge of "done" (RULES R1).
+# Categories: A build/static, B tests, B2 runnable artifact, C rules-as-greps, D workflow sync.
+#
+# Modes (boot budget: B2 runs ONCE per task, owned by QA — solo track: by the dev):
+#   (no args)  — full gate: A + B + B2 + C + D. Run by QA (and by the dev on solo tasks).
+#   --no-boot  — A + B + C + D (skips only the boot probe). Run by the developer.
+#   --static   — A + C + D only (skips tests and the boot probe). Run by the code reviewer.
+#
+# Conventions that survived contact with real projects:
+#   - set -uo pipefail but NOT -e (cleanup paths must run; track $fail instead)
+#   - BSD/macOS tools: use [[:space:]] in grep/sed, never \s
+#   - scan() must exclude node_modules/dist/build/.vite/vendor dirs
+#   - checks FAIL when prerequisites are missing — never silently skip
+#   - SPEED: slow verification cuts iteration count. Within each category, order
+#     checks cheapest-first (greps < typecheck < lint < build < tests < boot); if A
+#     fails, report and skip B/B2 (their failures are noise on a broken build) but
+#     still run C/D — they're cheap and independent.
+set -uo pipefail
+cd "$(dirname "$0")/.."
+
+RUN_TESTS=1; RUN_BOOT=1
+case "${1:-}" in
+  --static)  RUN_TESTS=0; RUN_BOOT=0 ;;
+  --no-boot) RUN_BOOT=0 ;;
+esac
+
+fail=0
+ok()  { printf '  ✓ %s\n' "$1"; }
+bad() { printf '  ✗ %s\n' "$1"; fail=1; }
+
+printf '=== A. Build / static ===\n'
+# {{TYPECHECK_CMD}} ; {{LINT_CMD}} ; build — one check per command:
+# {{TYPECHECK_CMD}} >/dev/null 2>&1 && ok "typecheck" || bad "typecheck"
+
+if [ "$RUN_TESTS" -eq 1 ]; then
+  printf '\n=== B. Tests ===\n'
+  # {{TEST_CMD}} — assert zero skipped, capture counts for R-baseline.
+else
+  printf '\n=== B skipped (--static) ===\n'
+fi
+
+if [ "$RUN_BOOT" -eq 1 ]; then
+  printf '\n=== B2. Runnable artifact ===\n'
+  # Build the shippable artifact, BOOT it, probe a liveness endpoint with timeout,
+  # kill+wait the child on ALL exit paths. Proves it runs, not just compiles.
+else
+  printf '\n=== B2 skipped (no boot in this mode) ===\n'
+fi
+
+printf '\n=== C. Rules as greps ===\n'
+# One grep per mechanically-checkable rule. Examples (adapt to RULES.md):
+# scan() { grep -rn --include='*.{{EXT}}' -E "$1" {{SRC_DIRS}} | grep -v node_modules | grep -v dist; }
+# scan 'console\.(log|error)' && bad "R-logging: bare console" || ok "R-logging"
+# scan "from ['\"]\..*\.js['\"]" && bad "R-imports: extension in import" || ok "R-imports"
+# scan 'parseFloat|toFixed' && bad "R-domain: float on protected value" || ok "R-domain"
+# scan 'TODO: implement|not implemented|NotImplemented|placeholder' && bad "R-placeholder: stub left in src" || ok "R-placeholder"
+# R-soft-delete (persistence stacks) — flag hard deletes on user data; allow a marked, SPEC-sanctioned one:
+#   grep -rnE '\.(deleteOne|deleteMany|findOneAndDelete|destroy|drop)\(|DELETE FROM' {{SRC_DIRS}} \
+#     | grep -v node_modules | grep -v 'hard-delete' \
+#     && bad "R-soft-delete: hard delete (use soft delete, or mark // hard-delete: SPEC §X)" || ok "R-soft-delete"
+# R-landing/404 (web clients) — assert a not-found component AND a root route exist:
+#   { grep -rq 'defaultNotFoundComponent\|notFoundComponent\|NotFound\|404' {{CLIENT_SRC}} \
+#     && grep -rqE "path:[[:space:]]*['\"]/['\"]|index\b" {{CLIENT_SRC}}; } \
+#     && ok "R-landing/404 present" || bad "R-landing/404: missing landing route or not-found page"
+
+printf '\n=== D. Workflow sync ===\n'
+bash harness/validate-workflow.sh >/dev/null 2>&1 && ok "workflow contracts in sync" || bad "workflow sync (run harness/validate-workflow.sh)"
+
+printf '\n'
+mode_label=""
+[ "$RUN_TESTS" -eq 0 ] && mode_label=" (static)"
+[ "$RUN_TESTS" -eq 1 ] && [ "$RUN_BOOT" -eq 0 ] && mode_label=" (no-boot)"
+if [ "$fail" -eq 0 ]; then printf 'VALIDATION%s: PASS\n' "$mode_label"; exit 0
+else printf 'VALIDATION%s: FAIL\n' "$mode_label"; exit 1; fi

@@ -1,0 +1,74 @@
+# Harness gate in CI — GitHub Actions.
+# Goes to .github/workflows/harness-gate.yml
+#
+# ONE principle: CI defines NO checks of its own. It prepares prerequisites
+# (toolchain, services, env) and runs the SAME master gate as local dev:
+#   bash harness/validate.sh
+# Same script, same verdict, everywhere. If CI needs a check, it belongs in
+# validate.sh so the developer hits it first.
+#
+# The gate FAILS when prerequisites are missing (RULES: never skip) — so this
+# file's whole job is making the prerequisites exist before the gate runs.
+# Fill the {{PLACEHOLDERS}} from the Q0 stack answer; delete blocks that
+# don't apply.
+
+name: harness-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    runs-on: ubuntu-latest
+
+    # {{SERVICES}} — only if Category B/B2 need backing services. Examples:
+    # services:
+    #   mongo:
+    #     image: mongo:8
+    #     ports: ["27017:27017"]
+    #   postgres:
+    #     image: postgres:16
+    #     ports: ["5432:5432"]
+    #     env: { POSTGRES_PASSWORD: ci, POSTGRES_DB: app }
+    #     options: >-
+    #       --health-cmd pg_isready --health-interval 5s
+    #       --health-timeout 5s --health-retries 10
+    #   redis:
+    #     image: redis:7
+    #     ports: ["6379:6379"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      # {{SETUP_STEPS}} — toolchain from the Q0 stack. Examples:
+      #
+      # Node/pnpm:
+      # - uses: pnpm/action-setup@v4
+      # - uses: actions/setup-node@v4
+      #   with: { node-version: 22, cache: pnpm }
+      # - run: pnpm install --frozen-lockfile
+      #
+      # Go:
+      # - uses: actions/setup-go@v5
+      #   with: { go-version-file: go.mod }
+      #
+      # Bun:
+      # - uses: oven-sh/setup-bun@v2
+      # - run: bun install --frozen-lockfile
+
+      # {{ENV_SETUP}} — the gate fails without its env (never skips), so
+      # materialize it. CI-safe defaults inline; real secrets via GH secrets.
+      # If scripts/init.sh exists, reuse its CI-compatible parts here (env file,
+      # migrations, codegen) instead of duplicating them — setup lives once.
+      # Service CONTAINERS stay in {{SERVICES}} above (CI manages those, not
+      # docker compose).
+      # - run: |
+      #     cat > .env <<'EOF'
+      #     DATABASE_URL=postgres://postgres:ci@localhost:5432/app
+      #     PORT=3000
+      #     EOF
+
+      - name: Master validation gate
+        run: bash harness/validate.sh

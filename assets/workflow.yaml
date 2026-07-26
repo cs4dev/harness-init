@@ -1,0 +1,108 @@
+# Project development workflow (Level 3 — structured orchestration).
+# The relay rules: which stage, what it must produce, who runs next, when to roll back.
+# The PM is a pure ROUTER — it reads stage outputs and routes; it makes zero technical calls.
+# Convention: each stage's `agent` has a contract at harness/workflow/roles/<agent>.md
+# and writes its artifact under docs/tasks/<task-id>/.
+version: 3
+
+# Track selection (PM decides at task creation, logs the choice + reason in task.md).
+# Simplest track that fits; promote-never-demote. DEFAULT IS FAST.
+#   solo — trivial mechanical change (one file / config / copy / dep bump, no new
+#          behavior): the MAIN SESSION implements directly, no sub-agents. The full
+#          gate is the only verdict — done = `harness/validate.sh` exits 0.
+#   fast — the DEFAULT for bugfixes and bounded features: spec → dev → review∥qa.
+#   full — promote only on an explicit trigger: new endpoint/schema/migration,
+#          touches frozen SPEC scope or RULES, cross-package contract change,
+#          new external dependency/service. Adds an upfront design stage.
+tracks:
+  solo: [dev, done]
+  fast: [spec, dev, review, qa, done]
+  full: [design, dev, review, qa, done]
+
+stages:
+  # Full track only: ONE combined requirements+design artifact. (Splitting them
+  # into two stages doubled latency without measured benefit; the architect
+  # writes binary acceptance criteria AND the technical design, then self-checks
+  # readiness — the old gatekeeper checklist lives inside design.md now.)
+  - id: design
+    agent: solution-architect
+    produces: design.md
+    next: dev
+    # If the request is too ambiguous for binary acceptance criteria, the
+    # architect escalates to the PM, who clarifies with the user.
+
+  # Fast track only: one condensed artifact (binary acceptance criteria + scope
+  # + where-it-lands note). No design stage.
+  - id: spec
+    agent: requirements-analyst
+    produces: spec.md
+    next: dev
+    # No rollback target — if the request needs real design work, the analyst
+    # escalates to the PM, who promotes the task to the full track.
+
+  - id: dev
+    # solo track: executed by the main session, no sub-agent.
+    agent: developer
+    reads: [design.md]          # fast track: spec.md
+    produces: dev-notes.md
+    # FAN-OUT: review and qa run IN PARALLEL; done requires BOTH.
+    # solo track: next is done (the full gate is the verdict).
+    next: [review, qa]
+    rollback:
+      # fast track: rolls back to spec (via PM escalation).
+      to: design
+      when: the design cannot be implemented as written (gap discovered)
+
+  - id: review
+    agent: code-reviewer
+    reads: [design.md, dev-notes.md]   # fast track: spec.md, dev-notes.md
+    produces: review.md
+    next: done
+    rollback:
+      to: dev
+      when: code drifts from spec/design, has defects, violates RULES, or the static gate fails
+
+  - id: qa
+    agent: qa-tester
+    reads: [design.md, dev-notes.md]   # fast track: spec.md, dev-notes.md
+    produces: qa-report.md
+    next: done
+    rollback:
+      to: dev
+      when: functional failure, regression, or missing acceptance coverage
+
+  - id: done
+    agent: pm
+    produces: closure.md
+
+# Hard rules of the relay (article Ch 7.1 / 7.2):
+rules:
+  - A downstream stage NEVER edits an upstream artifact. It raises a blocker; the PM rolls back.
+  - The PM routes and logs only — no requirements/design/code/test opinions.
+  - A stage is complete only when its artifact is written AND (for dev) the gate passes
+    at that stage's level (see boot budget below).
+  - review and qa are independent and run in parallel (spawn both in ONE message).
+    `done` requires review=APPROVE AND qa=PASS; if either fails, PM rolls back to dev
+    and BOTH re-run after the fix.
+  - Boot budget — ONE boot per task. The boot probe (B2) is the slowest check, so it
+    runs exactly once, owned by QA: dev runs `validate.sh --no-boot` (build/static +
+    tests + greps + sync), reviewer runs `validate.sh --static` (no tests, no boot),
+    QA runs the FULL gate including the boot probe. Solo track: the main session runs
+    the full gate itself — there the gate IS the independent verdict.
+  - Track choice is logged in task.md with the trigger that justified it. When solo/fast
+    work turns out to hit a full-track trigger, the PM promotes the task (no demotions
+    mid-task).
+  - The PM stamps start/end times per stage in the task.md routing log — tuning the
+    workflow needs measurements, not vibes.
+
+# Model tiering (article Ch 6.6) — match the tool to the task.
+# medium = read-and-judge roles; heavy = roles that synthesize (design, code).
+model_tiers:
+  pm: light            # routing, state, logging
+  requirements-analyst: medium
+  solution-architect: heavy
+  developer: heavy
+  code-reviewer: medium  # judges against artifacts + static gate; QA backstops behavior
+  qa-tester: heavy
+
+artifacts_dir: docs/tasks
