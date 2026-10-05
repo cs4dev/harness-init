@@ -105,4 +105,11 @@ model_tiers:
   code-reviewer: medium  # judges against artifacts + static gate; QA backstops behavior
   qa-tester: heavy
 
+# Tier → model the PM passes when spawning a role's sub-agent. Swap per tool/budget.
+# pm tier is advisory: the PM is the main session, its model is the user's pick.
+tier_models:
+  light: haiku
+  medium: sonnet
+  heavy: opus
+
 artifacts_dir: docs/tasks

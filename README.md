@@ -99,6 +99,25 @@ Booting the artifact is the slow check, so it happens exactly once:
 
 On `solo`, the main session just runs the full gate.
 
+## Upgrading an existing harness
+
+Scaffolds are one-shot copies, so skill improvements don't reach already-harnessed
+projects on their own. Update the skill, then run upgrade inside the project:
+
+```sh
+git -C ~/.claude/skills/harness-init pull
+```
+```
+/harness-init upgrade
+```
+
+It refreshes only the generic machinery (`workflow.yaml`, role contracts,
+`validate-workflow.sh`), keeps your local edits to them, never touches SPEC/RULES/
+`validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean
+git tree. Scaffolds record the skill commit in `harness/workflow/.harness-version`, so
+upgrade does a real 3-way merge (`git merge-file`); unstamped projects fall back to a
+reviewed 2-way diff.
+
 ## Notes
 
 - The gate will block real work. That is the point — fix the work, not the gate.

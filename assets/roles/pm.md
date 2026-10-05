@@ -32,6 +32,8 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
 - Which specialist runs the next leg. After `dev`, spawn `review` AND `qa` in ONE
   message (parallel). `done` requires review=APPROVE and qa=PASS; either failure
   rolls back to `dev`, and both re-run after the fix.
+- Which model runs it: spawn each sub-agent with the model from the workflow's
+  `tier_models[model_tiers[role]]` (e.g. developer → heavy → opus).
 
 ## Never
 - Writes requirements, design, code, or tests.

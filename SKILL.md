@@ -12,7 +12,9 @@ description: >
   repos, RECOMMEND 2-3 stacks for the human to pick. Commands, gate checks, and
   SOPs derive from that, then the scope/correctness/acceptance interview. Use
   when the user says "harness this project", "set up a harness", "harness-first",
-  or invokes /harness-init [project type + stack].
+  or invokes /harness-init [project type + stack]. Also upgrades an already-
+  harnessed project to the skill's current workflow/role assets: "upgrade the
+  harness", /harness-init upgrade.
 ---
 
 # harness-init — scaffold a Level-3 harness
@@ -36,6 +38,9 @@ Q0 resolution order (first source that answers wins):
    recommended default and one-line tradeoffs. The human picks.
 The human always confirms the stack before anything frozen is generated — detect or
 recommend, never silently decide.
+
+`/harness-init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
+exists): skip the procedure below and run **Upgrade** instead.
 
 Philosophy (non-negotiable): the HUMAN owns the harness, the AI writes production
 code. The harness is the durable asset; it lives in git, not chat memory. A task is
@@ -114,7 +119,12 @@ Required answers before writing anything frozen:
    correctness core from interview Q2 (e.g. the frozen state machine + its tests) —
    and config files the C greps check. Nothing more: features stay tasks (T-001+),
    the skeleton just proves the gate's verdict is earned, not vacuous.
-5. `harness/workflow/` — copy workflow.yaml + roles/ + validate-workflow.sh verbatim.
+5. `harness/workflow/` — copy workflow.yaml + roles/ verbatim; validate-workflow.sh
+   verbatim to `harness/` (it resolves the repo root as its parent's parent).
+   Stamp the source: `git -C <this skill's dir> rev-parse HEAD > harness/workflow/.harness-version`
+   — the merge base for a later upgrade. Skill dir not a git checkout, or its `assets/`
+   dirty (`git status --porcelain assets`) → skip the stamp and say so (that commit
+   wouldn't match what was copied; upgrade falls back to a 2-way diff).
 6. `docs/dev-map.md`, `docs/task-board.md` (empty board), `docs/tasks/` from doc templates.
 7. `.github/workflows/harness-gate.yml` from ci.yml.template — CI defines NO checks of
    its own; it sets up the toolchain/services/env from the Q0 stack, then runs the same
@@ -130,7 +140,8 @@ Required answers before writing anything frozen:
 - New feature = new task `T-00X`: PM (the main session) writes `docs/tasks/T-00X/task.md`,
   picks the SIMPLEST track that fits (mechanical rules in pm.md — solo for trivial
   mechanical changes, fast is the DEFAULT, full only on an explicit trigger;
-  promote-never-demote), then routes one ISOLATED sub-agent per stage; each reads
+  promote-never-demote), then routes one ISOLATED sub-agent per stage, on the model
+  its role's tier maps to (`workflow.yaml` `tier_models`); each reads
   `harness/context.md` first plus its contract's inputs and writes its artifact.
   Downstream NEVER edits upstream — blockers roll back via the PM.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
@@ -147,9 +158,43 @@ Required answers before writing anything frozen:
   measurements, not vibes.
 - The gate will block real work. That is the point. Fix the work, not the gate.
 
+## Upgrade (existing harness → this skill's current assets)
+Scaffolds are one-shot copies; this pulls later skill changes into a harnessed project.
+Scope is the VERBATIM assets only — they're the harness's generic machinery:
+`assets/workflow.yaml` → `harness/workflow/workflow.yaml`,
+`assets/roles/*.md` → `harness/workflow/roles/`,
+`assets/validate-workflow.sh` → `harness/validate-workflow.sh`. Instantiated files
+(SPEC, RULES, validate.sh, CLAUDE.md, CI, context.md, skills) are project-owned —
+never touch them; if their template changed, just tell the user what changed.
+
+1. Precondition: clean git tree (upgrade must be one reviewable, revertable diff).
+   Not a git repo or dirty → stop and say so.
+2. Read the merge base from `harness/workflow/.harness-version`. Usable only if
+   `git -C <skill dir> cat-file -e <hash>` succeeds (missing stamp, or a commit the
+   skill checkout doesn't have, e.g. shallow clone → 2-way fallback, step 5).
+3. Per asset: identical to the skill's current copy → skip silently. Missing in
+   project → copy it in, unless it existed at base (the project deleted it on
+   purpose) → ask before restoring.
+4. **3-way (base usable):** `git -C <skill dir> show <hash>:assets/<path> > base`
+   (absent at base = new asset, step 3), then `git merge-file <project file> base
+   <skill file>` — merges in place, exit code = conflict count. Exit 0 → merged,
+   local edits kept automatically. Conflicts → show each `<<<<<<<` block and
+   AskUserQuestion (skill / local / hand-merged); never leave markers in the file.
+5. **2-way fallback (no base):** show the diff and classify each hunk: **skill
+   change** vs **local edit** (e.g. a swapped `tier_models`). Take skill hunks, keep
+   local edits; any hunk you can't classify → AskUserQuestion. Never silently drop a
+   local edit.
+6. A role the project added that the skill doesn't ship → leave it alone.
+7. Run `harness/validate-workflow.sh` then `harness/validate.sh --static`; both must
+   exit 0. Then rewrite `.harness-version` with the skill's current HEAD (same
+   dirty-assets rule as scaffolding). Report per file: unchanged / updated / merged /
+   conflict-resolved / kept-local, and which mode ran (3-way or 2-way).
+8. Suggest a commit ("harness: upgrade workflow assets") — the user decides.
+
 ## Hard-won portability notes (bake into generated files where relevant)
 - bash gates: `set -uo pipefail` WITHOUT `-e` (cleanup must run; track a fail flag).
 - macOS/BSD grep/sed: `[[:space:]]`, never `\s`.
+- zsh: `$H:assets/...` parses `:a` as a path modifier — write `"${H}:assets/..."`.
 - scan() greps must exclude node_modules/dist/build/.vite.
 - Gate checks FAIL when prerequisites are missing (DB down, .env absent) — never skip.
 - B2 exists because "compiles" ≠ "runs": boot the actual artifact, probe, clean up children.
