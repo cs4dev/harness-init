@@ -40,7 +40,7 @@ The human always confirms the stack before anything frozen is generated — dete
 recommend, never silently decide.
 
 `/harness-init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
-exists): skip the procedure below and run **Upgrade** instead.
+exists): skip the procedure below; read `references/upgrade.md` and follow it.
 
 Philosophy (non-negotiable): the HUMAN owns the harness, the AI writes production
 code. The harness is the durable asset; it lives in git, not chat memory. A task is
@@ -55,8 +55,11 @@ interview, don't invent.
   developer, code-reviewer, qa-tester), generic, use VERBATIM.
 - `assets/validate-workflow.sh` — workflow↔contracts sync gate, generic, use VERBATIM (chmod +x).
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
-  (ci.yml.template → .github/workflows/harness-gate.yml), doc templates:
-  instantiate by filling `{{PLACEHOLDERS}}`.
+  (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
+  task, context, resume): instantiate by filling `{{PLACEHOLDERS}}`.
+- `scripts/scaffold.sh <target> <project-name>` — copies every verbatim asset plus the
+  fixed doc templates, chmods, stamps `.harness-version`, runs the workflow-sync gate.
+  Never clobbers. NEVER Read+Write a verbatim asset by hand — run this.
 
 ## Procedure
 
@@ -67,6 +70,14 @@ Detect stack, package layout, existing test/lint/typecheck commands, existing CL
 the interview.
 
 ### 2. Interview the user (AskUserQuestion, don't guess)
+Keep it to ~2 rounds — each round trip is the human's wall-clock:
+- **Round 1:** Q0 alone (everything else derives from it) — skip if the argument
+  answered it; a repo scan just needs its one-line confirm, which can ride along in round 2.
+- **Round 2:** Q1, Q2 and Q4 together in ONE AskUserQuestion call (it takes up to 4
+  questions); omit Q4 when the stack makes the commands obvious.
+- **Sign-off:** ONE summary message — drafted Q3 acceptance criteria + derived
+  commands/B2 shape + rules — approved or corrected in one reply.
+
 Required answers before writing anything frozen:
 0. **What & with what** — what KIND of project is this (web app, CLI, API service,
    library, mobile, …) and what tech stack? Resolve per the Invocation order:
@@ -85,54 +96,71 @@ Required answers before writing anything frozen:
    binary with a smoke arg and assert exit 0 + expected output; library → build + import
    smoke test. B2 always proves "it runs", whatever running means for this artifact.
 
-### 3. Generate, in order
-1. `SPEC.md` from template — mark **FROZEN v1** with today's date only after user sign-off.
-2. `RULES.md` from template — R1 (Definition of Done) + R2 (SPEC is law) + the
-   interviewed domain rules + the STANDING CROSS-CUTTING rules that fit this stack
-   (soft-delete-by-default when the project persists user data; standard landing +
-   not-found pages when it has a web/GUI client — both shipped in the template, include
-   only those that apply) + no-placeholder/config/logging/baseline/artifact-ownership.
-   Renumber contiguously; keep it ~10 rules, lean red lines, not a style guide. Each
-   standing rule that's mechanically checkable gets a matching Category-C grep (the
-   template carries adaptable examples for soft-delete and landing/404).
-3. `harness/skills/{resume,run,build,test,validate}.md` — short SOPs with the real
-   commands (resume = start-of-session bootstrap from the doc templates: git state →
-   task-board → baseline `--no-boot` gate; validate documents all three gate modes).
-3b. `harness/context.md` from the doc templates — a ~30-line digest (commands,
-   frozen-rule one-liners, file map) that every sub-agent reads FIRST; full SPEC/RULES
-   only where the task touches them. Regenerate it whenever commands/rules/layout change.
-3c. `scripts/init.sh` — CONDITIONAL: only when the Q0 stack has prerequisites to
-   materialize (service containers, .env, migrations, codegen). One idempotent
-   script: services up → `.env` from `.env.example` if absent → deps install →
-   wait-until-ready → migrate. chmod +x. Skip entirely when setup is just an
-   install (library, static frontend) — a wrapper around one command is noise.
-   When generated: resume.md step 0 runs it, and CI's env/services blocks reuse it
-   where CI-compatible — setup-as-code, written once, not re-derived per session.
-4. `harness/validate.sh` from skeleton — wire Categories A (build/static), B (tests),
-   B2 (boot the runnable artifact + liveness probe; fail-not-skip; kill+wait cleanup),
-   C (one grep per mechanically-checkable rule), D (calls validate-workflow.sh).
-   chmod +x. **Run it; it must pass on the clean scaffold before you claim done.**
-   **Empty repo → walking skeleton.** The gate never skips, so an empty repo gets the
-   MINIMUM code that makes every category judge something real: package/workspace
-   manifests, a runnable entry (server: liveness route; CLI: smoke arg; library:
-   importable module), at least one real test — ideally guarding part of the
-   correctness core from interview Q2 (e.g. the frozen state machine + its tests) —
-   and config files the C greps check. Nothing more: features stay tasks (T-001+),
-   the skeleton just proves the gate's verdict is earned, not vacuous.
-5. `harness/workflow/` — copy workflow.yaml + roles/ verbatim; validate-workflow.sh
-   verbatim to `harness/` (it resolves the repo root as its parent's parent).
-   Stamp the source: `git -C <this skill's dir> rev-parse HEAD > harness/workflow/.harness-version`
-   — the merge base for a later upgrade. Skill dir not a git checkout, or its `assets/`
-   dirty (`git status --porcelain assets`) → skip the stamp and say so (that commit
-   wouldn't match what was copied; upgrade falls back to a 2-way diff).
-6. `docs/dev-map.md`, `docs/task-board.md` (empty board), `docs/tasks/` from doc templates.
-7. `.github/workflows/harness-gate.yml` from ci.yml.template — CI defines NO checks of
-   its own; it sets up the toolchain/services/env from the Q0 stack, then runs the same
-   `bash harness/validate.sh`. Gate fails on missing prerequisites, so CI must provide
-   them (service containers, generated .env). Skip this file only if the repo has no
-   GitHub remote AND the user declines; otherwise generate it.
-8. `CLAUDE.md` from template (merge with any existing content).
-9. Suggest a git commit ("harness: Level-3 scaffold") — the user decides.
+### 3. Generate — maximize parallelism, minimize gate boots
+Only `validate.sh` depends on anything (it needs the skeleton/commands to exist);
+every other file is independent once the sign-off is in. So:
+
+**3a. First message after sign-off — all of these as parallel tool calls:**
+- `bash <this skill's dir>/scripts/scaffold.sh <repo> "<project name>"` — workflow.yaml,
+  roles/, validate-workflow.sh (repo root = its parent's parent), task-board,
+  resume.md, docs/tasks/, the `.harness-version` stamp (skipped and reported when the
+  skill dir isn't a git checkout or its `assets/` is dirty — upgrade then falls back to
+  a 2-way diff). Report its skips; an existing file it skipped needs a manual merge.
+- **Empty repo → start the walking skeleton now, in the background**
+  (`run_in_background`): the stack's OFFICIAL scaffolder where one exists
+  (`pnpm create vite`, `go mod init`, `cargo new`, `uv init`, …) + dependency install,
+  instead of hand-writing manifests/configs. Installs are the slow part; let them
+  overlap the writes below.
+- Write calls for every judgment file:
+  1. `SPEC.md` from template — mark **FROZEN v1** with today's date (sign-off is in).
+  2. `RULES.md` from template — R1 (Definition of Done) + R2 (SPEC is law) + the
+     interviewed domain rules + the STANDING CROSS-CUTTING rules that fit this stack
+     (soft-delete-by-default when the project persists user data; standard landing +
+     not-found pages when it has a web/GUI client — both shipped in the template,
+     include only those that apply) + no-placeholder/config/logging/baseline/
+     artifact-ownership. Renumber contiguously; keep it ~10 rules, lean red lines, not
+     a style guide. Each standing rule that's mechanically checkable gets a matching
+     Category-C grep (the template carries adaptable examples for soft-delete and
+     landing/404).
+  3. `harness/skills/{run,build,test,validate}.md` — short SOPs with the real commands
+     (validate documents all three gate modes). `resume.md` came from scaffold.sh.
+  4. `harness/context.md` from `templates/docs/context.md` — a ~30-line digest
+     (commands, frozen-rule one-liners, file map) that every sub-agent reads FIRST;
+     full SPEC/RULES only where the task touches them. Regenerate it whenever
+     commands/rules/layout change.
+  5. `docs/dev-map.md` from `templates/docs/dev-map.md`.
+  6. `scripts/init.sh` — CONDITIONAL: only when the Q0 stack has prerequisites to
+     materialize (service containers, .env, migrations, codegen). One idempotent
+     script: services up → `.env` from `.env.example` if absent → deps install →
+     wait-until-ready → migrate. chmod +x. Skip entirely when setup is just an
+     install (library, static frontend) — a wrapper around one command is noise.
+     When generated: resume.md step 0 runs it, and CI's env/services blocks reuse it
+     where CI-compatible — setup-as-code, written once, not re-derived per session.
+  7. `.github/workflows/harness-gate.yml` from ci.yml.template — CI defines NO checks
+     of its own; it sets up the toolchain/services/env from the Q0 stack, then runs the
+     same `bash harness/validate.sh`. Gate fails on missing prerequisites, so CI must
+     provide them (service containers, generated .env). Skip this file only if the
+     repo has no GitHub remote AND the user declines; otherwise generate it.
+  8. `CLAUDE.md` from template (merge with any existing content — read it first).
+
+**3b. Skeleton + gate (sequential — needs 3a done).**
+- **Empty repo → walking skeleton.** The gate never skips, so an empty repo gets the
+  MINIMUM code that makes every category judge something real: on top of the
+  scaffolder output, a runnable entry (server: liveness route; CLI: smoke arg;
+  library: importable module), at least one real test — ideally guarding part of the
+  correctness core from interview Q2 (e.g. the frozen state machine + its tests) —
+  and config files the C greps check. Nothing more: features stay tasks (T-001+),
+  the skeleton just proves the gate's verdict is earned, not vacuous.
+- `harness/validate.sh` from skeleton — wire Categories A (build/static), B (tests),
+  B2 (boot the runnable artifact + liveness probe; fail-not-skip; kill+wait cleanup),
+  C (one grep per mechanically-checkable rule), D (calls validate-workflow.sh).
+  chmod +x.
+- Iterate with `validate.sh --no-boot` until green (fix what each failure names,
+  re-run — don't re-run the whole gate to check a one-line fix that a single command
+  proves). Then run the FULL gate ONCE: **it must pass on the clean scaffold before
+  you claim done.** A B2 failure there → fix, re-run full.
+
+**3c.** Suggest a git commit ("harness: Level-3 scaffold") — the user decides.
 
 ### 4. Teach the loop (tell the user, briefly)
 - Every session starts with `harness/skills/resume.md`: git state → task-board →
@@ -157,39 +185,6 @@ Required answers before writing anything frozen:
 - The PM stamps start/end per stage in the routing log — tune the workflow from
   measurements, not vibes.
 - The gate will block real work. That is the point. Fix the work, not the gate.
-
-## Upgrade (existing harness → this skill's current assets)
-Scaffolds are one-shot copies; this pulls later skill changes into a harnessed project.
-Scope is the VERBATIM assets only — they're the harness's generic machinery:
-`assets/workflow.yaml` → `harness/workflow/workflow.yaml`,
-`assets/roles/*.md` → `harness/workflow/roles/`,
-`assets/validate-workflow.sh` → `harness/validate-workflow.sh`. Instantiated files
-(SPEC, RULES, validate.sh, CLAUDE.md, CI, context.md, skills) are project-owned —
-never touch them; if their template changed, just tell the user what changed.
-
-1. Precondition: clean git tree (upgrade must be one reviewable, revertable diff).
-   Not a git repo or dirty → stop and say so.
-2. Read the merge base from `harness/workflow/.harness-version`. Usable only if
-   `git -C <skill dir> cat-file -e <hash>` succeeds (missing stamp, or a commit the
-   skill checkout doesn't have, e.g. shallow clone → 2-way fallback, step 5).
-3. Per asset: identical to the skill's current copy → skip silently. Missing in
-   project → copy it in, unless it existed at base (the project deleted it on
-   purpose) → ask before restoring.
-4. **3-way (base usable):** `git -C <skill dir> show <hash>:assets/<path> > base`
-   (absent at base = new asset, step 3), then `git merge-file <project file> base
-   <skill file>` — merges in place, exit code = conflict count. Exit 0 → merged,
-   local edits kept automatically. Conflicts → show each `<<<<<<<` block and
-   AskUserQuestion (skill / local / hand-merged); never leave markers in the file.
-5. **2-way fallback (no base):** show the diff and classify each hunk: **skill
-   change** vs **local edit** (e.g. a swapped `tier_models`). Take skill hunks, keep
-   local edits; any hunk you can't classify → AskUserQuestion. Never silently drop a
-   local edit.
-6. A role the project added that the skill doesn't ship → leave it alone.
-7. Run `harness/validate-workflow.sh` then `harness/validate.sh --static`; both must
-   exit 0. Then rewrite `.harness-version` with the skill's current HEAD (same
-   dirty-assets rule as scaffolding). Report per file: unchanged / updated / merged /
-   conflict-resolved / kept-local, and which mode ran (3-way or 2-way).
-8. Suggest a commit ("harness: upgrade workflow assets") — the user decides.
 
 ## Hard-won portability notes (bake into generated files where relevant)
 - bash gates: `set -uo pipefail` WITHOUT `-e` (cleanup must run; track a fail flag).
