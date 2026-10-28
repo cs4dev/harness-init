@@ -54,6 +54,10 @@ interview, don't invent.
 - `assets/roles/*.md` — 6 role contracts (pm, requirements-analyst, solution-architect,
   developer, code-reviewer, qa-tester), generic, use VERBATIM.
 - `assets/validate-workflow.sh` — workflow↔contracts sync gate, generic, use VERBATIM (chmod +x).
+- `assets/sync-agents.sh` — renders `.claude/agents/<role>.md` from workflow.yaml (model
+  from the tier; judge roles get the write guard hook); `--check` runs inside the
+  workflow gate. `assets/guard-artifact-write.sh` — that PreToolUse hook: judge roles
+  may write only under `docs/tasks/`. Both VERBATIM.
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
   (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
   task, context, resume): instantiate by filling `{{PLACEHOLDERS}}`.
@@ -103,7 +107,8 @@ every other file is independent once the sign-off is in. So:
 **3a. First message after sign-off — all of these as parallel tool calls:**
 - `bash <this skill's dir>/scripts/scaffold.sh <repo> "<project name>"` — workflow.yaml,
   roles/, validate-workflow.sh (repo root = its parent's parent), task-board,
-  resume.md, docs/tasks/, the `.harness-version` stamp (skipped and reported when the
+  resume.md, docs/tasks/, sync-agents.sh + guard (and runs it: `.claude/agents/`),
+  the `.harness-version` stamp (skipped and reported when the
   skill dir isn't a git checkout or its `assets/` is dirty — upgrade then falls back to
   a 2-way diff). Report its skips; an existing file it skipped needs a manual merge.
 - **Empty repo → start the walking skeleton now, in the background**
@@ -170,8 +175,10 @@ every other file is independent once the sign-off is in. So:
 - New feature = new task `T-00X`: PM (the main session) writes `docs/tasks/T-00X/task.md`,
   picks the SIMPLEST track that fits (mechanical rules in pm.md — solo for trivial
   mechanical changes, fast is the DEFAULT, full only on an explicit trigger;
-  promote-never-demote), then routes one ISOLATED sub-agent per stage, on the model
-  its role's tier maps to (`workflow.yaml` `tier_models`); each reads
+  promote-never-demote), then routes one ISOLATED sub-agent per stage by role name
+  (`subagent_type: code-reviewer` …) with NO `model` param — `.claude/agents/<role>.md`
+  carries the tier's model and the judges' write guard (`tier_models` change →
+  re-run `harness/sync-agents.sh`; the gate fails until you do); each reads
   `harness/context.md` first plus its contract's inputs and writes its artifact.
   Downstream NEVER edits upstream — blockers roll back via the PM.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done

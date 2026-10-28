@@ -38,6 +38,8 @@ RULES.md                 ~10 red lines, each mechanically checkable one gets a g
 harness/validate.sh      the gate: A build · B tests · B2 boot the artifact · C rules · D workflow sync
 harness/context.md       ~30-line digest every sub-agent reads first
 harness/workflow/        three-track relay + 6 role contracts
+.claude/agents/          one sub-agent per role, rendered from workflow.yaml: model per
+                         tier; reviewer/QA/analyst/architect can write only docs/tasks/
 docs/task-board.md       append-only, one task active at a time
 .github/workflows/       CI materializes prerequisites, then runs the same gate
 ```
@@ -111,8 +113,9 @@ git -C ~/.claude/skills/harness-init pull
 /harness-init upgrade
 ```
 
-It refreshes only the generic machinery (`workflow.yaml`, role contracts,
-`validate-workflow.sh`), keeps your local edits to them, never touches SPEC/RULES/
+It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
+`validate-workflow.sh` / `sync-agents.sh` / write-guard scripts, then re-renders
+`.claude/agents/`), keeps your local edits to them, never touches SPEC/RULES/
 `validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean
 git tree. Scaffolds record the skill commit in `harness/workflow/.harness-version`, so
 upgrade does a real 3-way merge (`git merge-file`); unstamped projects fall back to a

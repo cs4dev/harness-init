@@ -121,5 +121,14 @@ done)
 case "$tier_out" in *✗*) fail=1 ;; esac
 grep -q '^model_tiers:' "$WF" || bad "no model_tiers block"
 
+# 8. Rendered sub-agents (.claude/agents/) match workflow.yaml.
+if [ -f harness/sync-agents.sh ]; then
+  bash harness/sync-agents.sh --check >/dev/null 2>&1 && ok "sub-agents in sync (.claude/agents)" \
+    || bad "sub-agents stale or missing (run harness/sync-agents.sh)"
+  [ -f harness/guard-artifact-write.sh ] && ok "write guard present" || bad "missing harness/guard-artifact-write.sh"
+else
+  bad "missing harness/sync-agents.sh"
+fi
+
 if [ "$fail" -eq 0 ]; then printf '\nWORKFLOW: PASS\n'; exit 0
 else printf '\nWORKFLOW: FAIL\n'; exit 1; fi
