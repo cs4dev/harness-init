@@ -31,12 +31,18 @@ printf '=== Verbatim assets ===\n'
 put "$A/workflow.yaml" harness/workflow/workflow.yaml
 for r in "$A"/roles/*.md; do put "$r" "harness/workflow/roles/$(basename "$r")"; done
 put "$A/validate-workflow.sh" harness/validate-workflow.sh exec
+put "$A/sync-agents.sh" harness/sync-agents.sh exec
+put "$A/guard-artifact-write.sh" harness/guard-artifact-write.sh exec
 verbatim_kept=$kept
 
 printf '\n=== Fixed doc templates ===\n'
 put "$A/templates/docs/task-board.md" docs/task-board.md
 put "$A/templates/docs/resume.md" harness/skills/resume.md
 if mkdir -p "$T/docs/tasks"; then printf '  ✓ dir    docs/tasks/\n'; else printf '  ✗ dir    docs/tasks/\n'; fail=1; fi
+
+printf '\n=== Sub-agents ===\n'
+bash "$T/harness/sync-agents.sh" | grep -E '✓|✗' || true
+bash "$T/harness/sync-agents.sh" --check >/dev/null 2>&1 || { printf '  ✗ sync-agents.sh --check fails\n'; fail=1; }
 
 printf '\n=== Version stamp ===\n'
 stamp="$T/harness/workflow/.harness-version"

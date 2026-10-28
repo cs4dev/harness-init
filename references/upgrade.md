@@ -4,7 +4,8 @@ Scaffolds are one-shot copies; this pulls later skill changes into a harnessed p
 Scope is the VERBATIM assets only — they're the harness's generic machinery:
 `assets/workflow.yaml` → `harness/workflow/workflow.yaml`,
 `assets/roles/*.md` → `harness/workflow/roles/`,
-`assets/validate-workflow.sh` → `harness/validate-workflow.sh`. Instantiated files
+`assets/validate-workflow.sh` → `harness/validate-workflow.sh`,
+`assets/sync-agents.sh` / `assets/guard-artifact-write.sh` → `harness/`. Instantiated files
 (SPEC, RULES, validate.sh, CLAUDE.md, CI, context.md, skills) are project-owned —
 never touch them; if their template changed, just tell the user what changed.
 
@@ -26,7 +27,9 @@ never touch them; if their template changed, just tell the user what changed.
    local edits; any hunk you can't classify → AskUserQuestion. Never silently drop a
    local edit.
 6. A role the project added that the skill doesn't ship → leave it alone.
-7. Run `harness/validate-workflow.sh` then `harness/validate.sh --static`; both must
+7. Run `bash harness/sync-agents.sh` (re-renders `.claude/agents/` from the merged
+   workflow.yaml; reports a same-named agent the user wrote by hand — ask before
+   renaming either), then `harness/validate-workflow.sh` then `harness/validate.sh --static`; both must
    exit 0. Then rewrite `.harness-version` with the skill's current HEAD (same
    dirty-assets rule as scaffolding). Report per file: unchanged / updated / merged /
    conflict-resolved / kept-local, and which mode ran (3-way or 2-way).

@@ -105,11 +105,17 @@ model_tiers:
   code-reviewer: medium  # judges against artifacts + static gate; QA backstops behavior
   qa-tester: heavy
 
-# Tier → model the PM passes when spawning a role's sub-agent. Swap per tool/budget.
+# Tier → model. Rendered into each role's .claude/agents/<role>.md by
+# harness/sync-agents.sh — the agent file, not the PM, carries the model. Swap per
+# tool/budget, then re-run sync-agents.sh (the gate fails until you do).
 # pm tier is advisory: the PM is the main session, its model is the user's pick.
 tier_models:
   light: haiku
   medium: sonnet
   heavy: opus
+
+# Roles that write ONLY their artifact: their agent file gets a PreToolUse hook
+# blocking Write/Edit outside docs/tasks/. Judges judge; the developer owns code.
+artifact_only_roles: [requirements-analyst, solution-architect, code-reviewer, qa-tester]
 
 artifacts_dir: docs/tasks

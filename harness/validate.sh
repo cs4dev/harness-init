@@ -5,8 +5,9 @@
 # FAIL paths — a gate that never fails proves nothing.
 #
 # Categories: A syntax · B scaffold behavior · C workflow gate · D validate.sh
-# template · E docs ↔ files.  Same conventions as the gates it ships: set -uo
-# pipefail without -e, [[:space:]] not \s, no GNU-only flags (CI runs Linux + macOS).
+# template · E sub-agents + write guard · F docs ↔ files.
+# Same conventions as the gates it ships: set -uo pipefail without -e,
+# [[:space:]] not \s, no GNU-only flags (CI runs Linux + macOS).
 set -uo pipefail
 cd "$(dirname "$0")/.."
 ROOT=$PWD
@@ -89,7 +90,44 @@ expect fail "placeholder left in SPEC.md fails the gate" bash "$d/harness/valida
 rm "$d/SPEC.md"; edit "$d/harness/validate.sh" 's/^ok "C check"; wired C$/wired C/'
 expect fail "an empty category fails the gate" bash "$d/harness/validate.sh" --static
 
-printf '\n=== E. Docs ↔ files ===\n'
+printf '\n=== E. Sub-agents (.claude/agents) ===\n'
+d="$TMP/f1"; fresh "$d"
+n_agents=$(ls "$d/.claude/agents" | wc -l | tr -d ' ')
+[ "$n_agents" = "$(( $(ls assets/roles | wc -l) - 1 ))" ] && ok "one agent per role except pm ($n_agents)" || bad "agents rendered: $n_agents"
+[ ! -e "$d/.claude/agents/pm.md" ] && ok "no pm agent (PM is the main session)" || bad "pm.md rendered"
+grep -q '^model: opus$' "$d/.claude/agents/developer.md" && ok "developer → heavy → opus" || bad "developer model wrong"
+grep -q '^model: sonnet$' "$d/.claude/agents/code-reviewer.md" && ok "code-reviewer → medium → sonnet" || bad "code-reviewer model wrong"
+for r in requirements-analyst solution-architect code-reviewer qa-tester; do
+  grep -q 'guard-artifact-write.sh' "$d/.claude/agents/$r.md" && ok "$r has the write guard" || bad "$r missing the write guard"
+done
+grep -q 'hooks:' "$d/.claude/agents/developer.md" && bad "developer is guarded (it owns code)" || ok "developer unguarded"
+# guard <want> <path> — feed the hook a Write call, as Claude Code would.
+guard() {
+  local want=$1 p=$2
+  printf '{"tool_name":"Write","tool_input":{"file_path":"%s","content":"x"}}' "$p" \
+    | CLAUDE_PROJECT_DIR="$d" bash "$d/harness/guard-artifact-write.sh" >/dev/null 2>&1
+  local rc=$?; { [ "$want" = allow ] && [ $rc -eq 0 ]; } || { [ "$want" = block ] && [ $rc -eq 2 ]; } \
+    && ok "guard ${want}s ${p#$d/}" || bad "guard on ${p#$d/}: exit $rc, wanted $want"
+}
+guard allow "$d/docs/tasks/T-001/review.md"
+guard allow "docs/tasks/T-001/qa-report.md"
+guard block "$d/src/app.ts"
+guard block "$d/SPEC.md"
+guard block "$d/docs/tasks/../src/escape.ts"
+expect pass "pristine agents pass --check" bash "$d/harness/sync-agents.sh" --check
+edit "$d/harness/workflow/workflow.yaml" 's/^  heavy: opus/  heavy: fable/'
+expect fail "tier_models change without re-sync fails the workflow gate" bash "$d/harness/validate-workflow.sh"
+expect pass "re-sync fixes it" bash "$d/harness/sync-agents.sh"
+grep -q '^model: fable$' "$d/.claude/agents/developer.md" && ok "re-sync rendered the new model" || bad "re-sync left old model"
+edit "$d/.claude/agents/qa-tester.md" 's/^model: .*/model: haiku/'
+expect fail "hand-edited agent file is caught" bash "$d/harness/sync-agents.sh" --check
+bash "$d/harness/sync-agents.sh" >/dev/null 2>&1
+expect pass "re-sync restores it" bash "$d/harness/sync-agents.sh" --check
+printf -- '---\nname: developer\n---\nmine\n' > "$d/.claude/agents/developer.md"
+expect fail "user's own same-named agent is not overwritten" bash "$d/harness/sync-agents.sh"
+grep -q '^mine$' "$d/.claude/agents/developer.md" && ok "user agent left intact" || bad "user agent overwritten"
+
+printf '\n=== F. Docs ↔ files ===\n'
 for p in $(grep -oE '(assets|scripts|references)/[A-Za-z0-9_./-]+' SKILL.md README.md | cut -d: -f2 \
            | sed -E 's/[.,)]+$//' | sort -u); do
   case "$p" in *'*'*) continue ;; scripts/init.sh) continue ;; esac  # init.sh: generated in the target project
