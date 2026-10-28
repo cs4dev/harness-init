@@ -13,13 +13,16 @@ A="$SKILL/assets"
 T="$1"; NAME="$2"
 [ -d "$T" ] || { echo "target '$T' is not a directory" >&2; exit 2; }
 
-fail=0
+fail=0; kept=0
 put() {  # put <src> <dest-rel> [exec] — copy, filling {{PROJECT_NAME}}
   local dest="$T/$2"
-  if [ -e "$dest" ]; then printf '  - skip   %s (exists)\n' "$2"; return; fi
+  if [ -e "$dest" ]; then printf '  - skip   %s (exists)\n' "$2"; kept=1; return; fi
   mkdir -p "$(dirname "$dest")"
-  local c; c="$(cat "$1")" || { printf '  ✗ read   %s\n' "$1"; fail=1; return; }
-  printf '%s\n' "${c//'{{PROJECT_NAME}}'/$NAME}" > "$dest" || { printf '  ✗ write  %s\n' "$2"; fail=1; return; }
+  # awk, not ${c//pat/$NAME}: bash 5.2's patsub_replacement turns '&' in the name
+  # into the matched text. ENVIRON (not -v) so backslashes stay literal.
+  PN="$NAME" awk '{ s = $0; out = ""
+    while ((i = index(s, "{{PROJECT_NAME}}")) > 0) { out = out substr(s, 1, i - 1) ENVIRON["PN"]; s = substr(s, i + 16) }
+    print out s }' "$1" > "$dest" || { printf '  ✗ write  %s\n' "$2"; fail=1; return; }
   [ "${3:-}" = exec ] && chmod +x "$dest"
   printf '  ✓ wrote  %s\n' "$2"
 }
@@ -28,15 +31,22 @@ printf '=== Verbatim assets ===\n'
 put "$A/workflow.yaml" harness/workflow/workflow.yaml
 for r in "$A"/roles/*.md; do put "$r" "harness/workflow/roles/$(basename "$r")"; done
 put "$A/validate-workflow.sh" harness/validate-workflow.sh exec
+verbatim_kept=$kept
 
 printf '\n=== Fixed doc templates ===\n'
 put "$A/templates/docs/task-board.md" docs/task-board.md
 put "$A/templates/docs/resume.md" harness/skills/resume.md
-mkdir -p "$T/docs/tasks" && printf '  ✓ dir    docs/tasks/\n'
+if mkdir -p "$T/docs/tasks"; then printf '  ✓ dir    docs/tasks/\n'; else printf '  ✗ dir    docs/tasks/\n'; fail=1; fi
 
 printf '\n=== Version stamp ===\n'
 stamp="$T/harness/workflow/.harness-version"
-if ! head=$(git -C "$SKILL" rev-parse HEAD 2>/dev/null); then
+# The stamp is upgrade's 3-way merge base, so it must name the commit the verbatim
+# assets actually came from — never overwrite one, never stamp over kept files.
+if [ -e "$stamp" ]; then
+  printf '  - skip   .harness-version (exists — upgrade owns rewriting it)\n'
+elif [ "$verbatim_kept" -eq 1 ]; then
+  printf '  - skip   existing verbatim assets were kept — HEAD would not be their base (upgrade will use 2-way diff)\n'
+elif ! head=$(git -C "$SKILL" rev-parse HEAD 2>/dev/null); then
   printf '  - skip   skill dir is not a git checkout (upgrade will use 2-way diff)\n'
 elif [ -n "$(git -C "$SKILL" status --porcelain assets)" ]; then
   printf '  - skip   skill assets/ dirty — HEAD would not match what was copied\n'

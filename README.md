@@ -118,6 +118,13 @@ git tree. Scaffolds record the skill commit in `harness/workflow/.harness-versio
 upgrade does a real 3-way merge (`git merge-file`); unstamped projects fall back to a
 reviewed 2-way diff.
 
+## Contributing
+
+The skill holds itself to its own rule: a change is done when `bash harness/validate.sh`
+exits 0. It scaffolds throwaway repos and asserts both paths — `scaffold.sh` output,
+`validate-workflow.sh` rejecting broken workflows, the `validate.sh` template failing
+until filled — and CI runs the same script on Linux and macOS.
+
 ## Notes
 
 - The gate will block real work. That is the point — fix the work, not the gate.

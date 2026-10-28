@@ -74,5 +74,52 @@ for t in $rollback_targets; do
   fi
 done
 
+# 5. Every `next:` target (scalar or [list]) is a real stage id.
+next_targets=$(grep -E '^[[:space:]]*next:[[:space:]]' "$WF" | sed -E 's/.*next:[[:space:]]*//; s/#.*//; s/[][]//g' \
+  | tr ',' '\n' | sed -E 's/[[:space:]]//g' | grep -v '^$' | sort -u)
+for t in $next_targets; do
+  echo "$stage_ids" | grep -qx "$t" && ok "next target '$t' is a valid stage" || bad "next target '$t' is not a defined stage"
+done
+
+# Stage blocks as "id agent produces" lines, for the per-stage checks below.
+stage_rows=$(awk '
+  function flush() { if (id != "") print id, (agent == "" ? "-" : agent), (prod == "" ? "-" : prod) }
+  /^[[:space:]]*-[[:space:]]*id:[[:space:]]/ { flush(); id = $NF; agent = ""; prod = ""; next }
+  /^[^[:space:]#]/ { flush(); id = "" }
+  id != "" && /^[[:space:]]*agent:[[:space:]]/    { sub(/#.*/, ""); agent = $2 }
+  id != "" && /^[[:space:]]*produces:[[:space:]]/ { sub(/#.*/, ""); prod = $2 }
+  END { flush() }' "$WF")
+
+# 6. Each stage's artifact is named in its agent's `## Produces` section.
+while read -r sid sagent sprod; do
+  [ -n "$sid" ] && [ "$sprod" != "-" ] && [ -f "$ROLES_DIR/$sagent.md" ] || continue
+  if awk '/^## Produces/{f=1;next} /^## /{f=0} f' "$ROLES_DIR/$sagent.md" | grep -qF "$sprod"; then
+    ok "stage '$sid': $sagent.md produces $sprod"
+  else
+    bad "stage '$sid' produces $sprod but $sagent.md's ## Produces never names it"
+  fi
+done <<EOF
+$stage_rows
+EOF
+
+# 7. model_tiers ↔ tier_models ↔ each contract's `## Model tier` agree.
+tier_names=$(sed -n '/^tier_models:/,/^[a-z]/p' "$WF" | grep -E '^[[:space:]]+[a-z]+:' | sed -E 's/^[[:space:]]*([a-z]+):.*/\1/')
+# The loop runs in a pipeline subshell, so collect its lines and lift failures after.
+tier_out=$(sed -n '/^model_tiers:/,/^[a-z]/p' "$WF" | grep -E '^[[:space:]]+[a-z-]+:' | sed -E 's/#.*//' |
+while IFS=: read -r role tier; do
+  role=$(echo "$role" | tr -d '[:space:]'); tier=$(echo "$tier" | tr -d '[:space:]')
+  echo "$tier_names" | grep -qx "$tier" || { echo "  ✗ model_tiers.$role = '$tier' has no tier_models entry"; continue; }
+  f="$ROLES_DIR/$role.md"
+  [ -f "$f" ] || { echo "  ✗ model_tiers.$role has no contract ($f)"; continue; }
+  # First word of the first non-blank line under "## Model tier", e.g. "Medium — …" → medium.
+  ctier=$(awk '/^## Model tier/{f=1;next} /^## /{f=0} f && NF {print; exit}' "$f" \
+    | sed -E 's/^[^A-Za-z]*([A-Za-z]+).*/\1/' | tr '[:upper:]' '[:lower:]')
+  [ "$ctier" = "$tier" ] && echo "  ✓ tier $role = $tier (yaml ↔ contract)" \
+    || echo "  ✗ tier drift: workflow.yaml says $role=$tier, $role.md says '${ctier:-none}'"
+done)
+[ -n "$tier_out" ] && printf '%s\n' "$tier_out"
+case "$tier_out" in *✗*) fail=1 ;; esac
+grep -q '^model_tiers:' "$WF" || bad "no model_tiers block"
+
 if [ "$fail" -eq 0 ]; then printf '\nWORKFLOW: PASS\n'; exit 0
 else printf '\nWORKFLOW: FAIL\n'; exit 1; fi

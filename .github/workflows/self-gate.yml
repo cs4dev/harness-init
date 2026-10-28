@@ -1,0 +1,21 @@
+# The skill's own gate. Like the ci.yml.template it ships: no checks of its own,
+# just the same script a contributor runs locally. Both OSes because the shipped
+# gates promise BSD/macOS and GNU/Linux portability (and Linux has bash 5.2).
+name: self-gate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  gate:
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Self-gate
+        run: bash harness/validate.sh

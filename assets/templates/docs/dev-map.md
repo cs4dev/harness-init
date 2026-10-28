@@ -1,6 +1,6 @@
 # dev-map — {{PROJECT_NAME}}
 
-> Navigation chart. **Read before writing code** (RULES R5-equivalent). Check feature
+> Navigation chart. **Read before writing code.** Check feature
 > landing points + impact here first, then open the files. Maintained by whoever changes the code.
 
 ## Top-level layout

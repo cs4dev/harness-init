@@ -154,7 +154,9 @@ every other file is independent once the sign-off is in. So:
 - `harness/validate.sh` from skeleton — wire Categories A (build/static), B (tests),
   B2 (boot the runnable artifact + liveness probe; fail-not-skip; kill+wait cleanup),
   C (one grep per mechanically-checkable rule), D (calls validate-workflow.sh).
-  chmod +x.
+  chmod +x. The template FAILS until it is really filled: each category ends in
+  `wired <cat>` (zero checks there = FAIL), and section 0 fails on any `{{…}}` left in
+  SPEC/RULES/CLAUDE/harness/docs/CI — delete unused example lines, don't leave them.
 - Iterate with `validate.sh --no-boot` until green (fix what each failure names,
   re-run — don't re-run the whole gate to check a one-line fix that a single command
   proves). Then run the FULL gate ONCE: **it must pass on the clean scaffold before
