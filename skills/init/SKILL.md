@@ -70,9 +70,12 @@ file's directory and not to the user's project.
   `[non-visual]` and every screen covered); run by the ux-designer and the
   analyst/architect, and over `docs/mockups/*.html` + `docs/tasks/*/mockup.html` inside
   the workflow gate.
+  `assets/split-mockup.sh` — generates the per-persona mockups (`<base>-<slug>.html`)
+  from one combined source whose screens carry `data-personas`; `--check` runs inside
+  the workflow gate, so a stale or hand-edited persona file fails it.
   `assets/mockup-starter.html` — the runtime + conventions every mockup is copied from,
   including the review layer (bottom bar, screen header, screens panel, shortcuts card).
-  Both VERBATIM; shipped to every project (the stage simply never triggers without
+  All three VERBATIM; shipped to every project (the stage simply never triggers without
   `docs/personas/`).
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
   (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
@@ -146,9 +149,11 @@ the failure this step prevents.
 3. **v1 mockup:** follow `roles/ux-designer.md` yourself (no sub-agents yet) and build
    `docs/mockups/v1.html` from `harness/workflow/mockup-starter.html`, AS the personas,
    covering the Q1 v1 scope — every screen, flow, and non-happy state the v1 has.
-   Several personas: optionally one file per persona beside it, linked for the review
-   bar's persona switch (ux-designer.md). `bash harness/check-mockup.sh` must exit 0
-   (no SPEC yet, so it checks structure and flow only).
+   Several personas: tag each screen `data-personas="<slug> …"` and run
+   `bash harness/split-mockup.sh`. It writes `v1-<slug>.html` per persona, linked for
+   the review bar's persona switch (`P` / `Shift+P`; see ux-designer.md). Edit only
+   `v1.html` and re-run the split. `bash harness/check-mockup.sh` must exit 0 (no SPEC
+   yet, so it checks structure and flow only).
 4. **Iterate:** give the human the path (`open docs/mockups/v1.html`) and a one-line-
    per-screen list; ask approve, or what to change. Revise and re-check until they say
    approved — explicitly, never on silence. Stay in static HTML the whole time: if the

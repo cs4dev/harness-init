@@ -131,11 +131,15 @@ else
 fi
 
 # 9. Mockups: a workflow with a mockup stage ships the checker, and every
-#    docs/tasks/*/mockup.html passes it (artifacts stay valid after their stage).
+#    docs/tasks/*/mockup.html passes it (artifacts stay valid after their stage);
+#    per-persona files are regenerated from their source, never hand-edited or stale.
 if echo "$stage_rows" | awk '$3 == "mockup.html"' | grep -q .; then
   if [ ! -f harness/check-mockup.sh ]; then bad "a stage produces mockup.html but harness/check-mockup.sh is missing"
   elif bash harness/check-mockup.sh >/dev/null 2>&1; then ok "mockups pass check-mockup.sh"
   else bad "a docs/tasks/*/mockup.html fails (run harness/check-mockup.sh)"; fi
+  if [ ! -f harness/split-mockup.sh ]; then bad "missing harness/split-mockup.sh"
+  elif bash harness/split-mockup.sh --check >/dev/null 2>&1; then ok "per-persona mockups in sync (split-mockup.sh)"
+  else bad "per-persona mockups stale or missing (run harness/split-mockup.sh)"; fi
   [ -f harness/workflow/mockup-starter.html ] && ok "mockup starter present" || bad "missing harness/workflow/mockup-starter.html"
 fi
 

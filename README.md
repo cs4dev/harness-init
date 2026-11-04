@@ -140,6 +140,13 @@ what it is (`i`), and a shortcuts card appears on the first visit. Keys: `0` for
 `← →` to step through, `.` to hide the bar. Clicking something that isn't wired flashes
 what is. Headless screenshots leave the layer out unless the URL has `?bar`.
 
+With several personas, each one gets its own file. The designer tags every screen in
+the combined mockup with `data-personas="parent kid"`, and `split-mockup.sh` writes
+`v1-parent.html`, `v1-kid.html`, … beside it. Each holds only that persona's screens,
+starts at that persona's first screen and uses the viewport from its persona doc. `P` /
+`Shift+P` step between the files. The combined file is the only one anyone edits, and
+the workflow gate fails if a generated file is stale.
+
 The spec written after approval tags every acceptance criterion with the screens that
 show it (`AC-3 … [screen: signoff]`) or `[non-visual]`. `check-mockup.sh` fails the
 spec if a criterion is untagged or any approved screen is left uncovered. Dev builds to
@@ -190,7 +197,7 @@ To get new releases automatically, turn on auto-update in `/plugin` → Marketpl
 cs4dev → Enable auto-update. It is off by default for third-party marketplaces.
 
 It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
-`validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` scripts and the
+`validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` / `split-mockup.sh` scripts and the
 mockup starter, then re-renders
 `.claude/agents/`), keeps your local edits to them, never touches SPEC/RULES/
 `validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean

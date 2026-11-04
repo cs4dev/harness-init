@@ -6,7 +6,8 @@ Scope is the VERBATIM assets only — they're the harness's generic machinery:
 `assets/workflow.yaml` → `harness/workflow/workflow.yaml`,
 `assets/roles/*.md` → `harness/workflow/roles/`,
 `assets/validate-workflow.sh` → `harness/validate-workflow.sh`,
-`assets/sync-agents.sh` / `assets/guard-artifact-write.sh` / `assets/check-mockup.sh` → `harness/`,
+`assets/sync-agents.sh` / `assets/guard-artifact-write.sh` / `assets/check-mockup.sh` /
+`assets/split-mockup.sh` → `harness/`,
 `assets/mockup-starter.html` → `harness/workflow/mockup-starter.html`. Instantiated files
 (SPEC, RULES, validate.sh, CLAUDE.md, CI, context.md, skills) are project-owned —
 never touch them; if their template changed, just tell the user what changed.
