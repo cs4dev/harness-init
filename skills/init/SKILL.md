@@ -1,5 +1,5 @@
 ---
-name: harness-init
+name: init
 description: >
   Scaffold a Level-3 Harness Engineering setup into
   any project: frozen SPEC, RULES, skills/SOPs, master validation gate,
@@ -7,22 +7,22 @@ description: >
   changes; fast — the DEFAULT: spec→dev→review∥qa; full — explicit triggers
   only: design→dev→review∥qa) with role contracts, a one-boot-per-task gate
   split, and a workflow-sync gate.
-  Stack resolution: invocation argument (/harness-init web
+  Stack resolution: invocation argument (/harness-init:init web
   app, Fastify + React) → scan of an existing repo (detect, confirm) → for empty
   repos, RECOMMEND 2-3 stacks for the human to pick. Commands, gate checks, and
   SOPs derive from that, then the scope/correctness/acceptance interview. Use
   when the user says "harness this project", "set up a harness", "harness-first",
-  or invokes /harness-init [project type + stack]. Also upgrades an already-
+  or invokes /harness-init:init [project type + stack]. Also upgrades an already-
   harnessed project to the skill's current workflow/role assets: "upgrade the
-  harness", /harness-init upgrade.
+  harness", /harness-init:init upgrade.
 ---
 
 # harness-init — scaffold a Level-3 harness
 
 ## Invocation
-`/harness-init [project type + tech stack]` — the argument is free text from the human,
-e.g. `/harness-init web app, pnpm monorepo + Fastify + tRPC + React 19` or
-`/harness-init CLI tool in Go`. It answers interview Q0 directly: derive commands,
+`/harness-init:init [project type + tech stack]` — the argument is free text from the
+human, e.g. `/harness-init:init web app, pnpm monorepo + Fastify + tRPC + React 19` or
+`/harness-init:init CLI tool in Go`. It answers interview Q0 directly: derive commands,
 B2 shape, gate greps, and SOPs from it (confirm the derivations in the interview
 summary).
 
@@ -39,8 +39,9 @@ Q0 resolution order (first source that answers wins):
 The human always confirms the stack before anything frozen is generated — detect or
 recommend, never silently decide.
 
-`/harness-init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
-exists): skip the procedure below; read `references/upgrade.md` and follow it.
+`/harness-init:init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
+exists): skip the procedure below; read `${CLAUDE_PLUGIN_ROOT}/references/upgrade.md`
+and follow it.
 
 Philosophy (non-negotiable): the HUMAN owns the harness, the AI writes production
 code. The harness is the durable asset; it lives in git, not chat memory. A task is
@@ -48,7 +49,9 @@ done when `harness/validate.sh` exits 0 — never on a verbal claim. So: generat
 scaffold, but every frozen decision (SPEC scope, domain rules) comes from the USER —
 interview, don't invent.
 
-## Assets shipped with this skill
+## Assets shipped with this plugin
+All paths below are relative to the plugin root, `${CLAUDE_PLUGIN_ROOT}` — not to this
+file's directory and not to the user's project.
 - `assets/workflow.yaml` — the three-track relay (solo / fast / full, parallel review+qa,
   one-boot budget), generic, use VERBATIM.
 - `assets/roles/*.md` — 6 role contracts (pm, requirements-analyst, solution-architect,
@@ -61,6 +64,8 @@ interview, don't invent.
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
   (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
   task, context, resume): instantiate by filling `{{PLACEHOLDERS}}`.
+- `scripts/version.sh` — computes the `.harness-version` stamp (release tag, or commit
+  SHA in a dev clone) and materializes a stamp's assets as upgrade's merge base.
 - `scripts/scaffold.sh <target> <project-name>` — copies every verbatim asset plus the
   fixed doc templates, chmods, stamps `.harness-version`, runs the workflow-sync gate.
   Never clobbers. NEVER Read+Write a verbatim asset by hand — run this.
@@ -105,12 +110,11 @@ Only `validate.sh` depends on anything (it needs the skeleton/commands to exist)
 every other file is independent once the sign-off is in. So:
 
 **3a. First message after sign-off — all of these as parallel tool calls:**
-- `bash <this skill's dir>/scripts/scaffold.sh <repo> "<project name>"` — workflow.yaml,
+- `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh" <repo> "<project name>"` — workflow.yaml,
   roles/, validate-workflow.sh (repo root = its parent's parent), task-board,
   resume.md, docs/tasks/, sync-agents.sh + guard (and runs it: `.claude/agents/`),
-  the `.harness-version` stamp (skipped and reported when the
-  skill dir isn't a git checkout or its `assets/` is dirty — upgrade then falls back to
-  a 2-way diff). Report its skips; an existing file it skipped needs a manual merge.
+  the `.harness-version` stamp (skipped and reported when no valid stamp exists, e.g.
+  a dev clone with dirty `assets/` — upgrade then falls back to a 2-way diff). Report its skips; an existing file it skipped needs a manual merge.
 - **Empty repo → start the walking skeleton now, in the background**
   (`run_in_background`): the stack's OFFICIAL scaffolder where one exists
   (`pnpm create vite`, `go mod init`, `cargo new`, `uv init`, …) + dependency install,

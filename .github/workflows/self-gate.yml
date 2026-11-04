@@ -16,6 +16,30 @@ jobs:
     runs-on: ${{ matrix.os }}
     steps:
       - uses: actions/checkout@v4
-        with: { fetch-depth: 0 }
+        with: { fetch-depth: 0 }   # history + tags: version stamps and the bump check
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - name: Install claude CLI (for `claude plugin validate`)
+        run: npm install -g @anthropic-ai/claude-code
       - name: Self-gate
         run: bash harness/validate.sh
+
+  # Scaffolds from a plugin install stamp `v<version>`; upgrade fetches that tag as
+  # its 3-way merge base. So every version that reaches main gets its tag — once.
+  tag:
+    needs: gate
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with: { fetch-depth: 0 }
+      - name: Tag v<version> if new
+        run: |
+          v="v$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json"))["version"])')"
+          if git rev-parse -q --verify "refs/tags/$v" >/dev/null; then
+            echo "$v already tagged"; exit 0
+          fi
+          git tag "$v" "$GITHUB_SHA"
+          git push origin "$v"
