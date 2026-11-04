@@ -15,16 +15,38 @@ durable asset — it lives in git, not in chat memory.
 
 ## Install
 
-```sh
-git clone https://github.com/cs4dev/harness-init.git ~/.claude/skills/harness-init
+harness-init is a Claude Code plugin and its own marketplace. In a session
+(Claude Code 2.1.275+):
+
 ```
+/plugin install harness-init --marketplace cs4dev/harness-init
+```
+
+Older Claude Code, or from the shell:
+
+```sh
+claude plugin marketplace add cs4dev/harness-init
+claude plugin install harness-init@harness-init     # --scope project to share via the repo
+```
+
+Then restart Claude Code or run `/reload-plugins`. The skill is `/harness-init:init`.
+
+**Upgrading from the old git-clone install:** remove the clone first. Otherwise it loads
+as a second copy of the same plugin:
+
+```sh
+rm -rf ~/.claude/skills/harness-init
+```
+
+Projects you scaffolded from the clone keep working. Their SHA stamps still resolve as
+upgrade's merge base (fetched from GitHub).
 
 ## Setup — one invocation per project
 
 ```
-/harness-init web app, pnpm monorepo + Fastify + tRPC + React 19
-/harness-init CLI tool in Go
-/harness-init                      # existing repo: it scans and confirms the stack
+/harness-init:init web app, pnpm monorepo + Fastify + tRPC + React 19
+/harness-init:init CLI tool in Go
+/harness-init:init                 # existing repo: it scans and confirms the stack
 ```
 
 Stack resolution: invocation argument → repo scan (detect, confirm) → for empty repos,
@@ -124,31 +146,47 @@ On `solo`, the main session just runs the full gate.
 
 ## Upgrading an existing harness
 
-Scaffolds are one-shot copies, so skill improvements don't reach already-harnessed
-projects on their own. Update the skill, then run upgrade inside the project:
+Scaffolds are one-shot copies, so plugin improvements don't reach already-harnessed
+projects on their own. Update the plugin, then run upgrade inside the project:
 
 ```sh
-git -C ~/.claude/skills/harness-init pull
+claude plugin marketplace update harness-init
+claude plugin update harness-init@harness-init     # then restart, or /reload-plugins
 ```
 ```
-/harness-init upgrade
+/harness-init:init upgrade
 ```
+
+To get new releases automatically, turn on auto-update in `/plugin` → Marketplaces →
+harness-init → Enable auto-update. It is off by default for third-party marketplaces.
 
 It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
 `validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` scripts and the
 mockup starter, then re-renders
 `.claude/agents/`), keeps your local edits to them, never touches SPEC/RULES/
 `validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean
-git tree. Scaffolds record the skill commit in `harness/workflow/.harness-version`, so
-upgrade does a real 3-way merge (`git merge-file`); unstamped projects fall back to a
-reviewed 2-way diff.
+git tree. Scaffolds record the release (`v1.2.0`) in `harness/workflow/.harness-version`.
+A dev clone records its commit SHA instead. Upgrade fetches that ref from GitHub as the
+merge base and does a real 3-way merge (`git merge-file`). Unstamped projects, or
+upgrades run offline, fall back to a reviewed 2-way diff.
 
 ## Contributing
 
+Work from a clone and load it in place: `claude --plugin-dir .`, or
+`/plugin marketplace add ./` (a local marketplace is loaded without a cache copy).
+
 The skill holds itself to its own rule: a change is done when `bash harness/validate.sh`
-exits 0. It scaffolds throwaway repos and asserts both paths — `scaffold.sh` output,
+exits 0. It needs `python3` and the `claude` CLI (for `claude plugin validate`). It
+scaffolds throwaway repos and asserts both paths — `scaffold.sh` output,
 `validate-workflow.sh` rejecting broken workflows, the `validate.sh` template failing
-until filled — and CI runs the same script on Linux and macOS.
+until filled, plus the plugin manifests and version stamps. CI runs the same script on
+Linux and macOS.
+
+**Releases:** plugin users only receive an update when `version` in
+`.claude-plugin/plugin.json` changes. The gate fails if shipped files (`skills/`,
+`assets/`, `scripts/`, `references/`) changed since the current version's tag, so a
+change to them must include a version bump. On merge to main, CI tags `v<version>`.
+That tag is what scaffolds stamp and what upgrade fetches.
 
 ## Notes
 
@@ -157,4 +195,4 @@ until filled — and CI runs the same script on Linux and macOS.
 - B2 exists because "compiles" ≠ "runs": it boots the real artifact and probes it.
 - Downstream never edits upstream. Blockers roll back through the PM.
 
-See [SKILL.md](SKILL.md) for the full contract.
+See [skills/init/SKILL.md](skills/init/SKILL.md) for the full contract.
