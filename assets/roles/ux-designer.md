@@ -37,12 +37,15 @@ At init the main session follows this contract to build the v1 mockup
     header (`i`) and the screens panel (`0`). Keep that layer (bottom bar, header,
     shortcuts card) as shipped and extend it with `mockup.addShortcut(…)`; don't fork it.
     Set `--mk-accent` to the brand colour when there is one.
-  - Several personas (init's `docs/mockups/`): optionally one file per persona
-    (`v1-<slug>.html`, same screen ids, that persona's start screen first, only the
-    screens on their path) beside the combined `v1.html`, all linked with
-    `<meta name="mockup-files" content="All screens=v1.html; <Persona>=v1-<slug>.html">`
-    so the review bar can switch personas (`P`). Generate them from one source so they
-    can't drift.
+  - Several personas: one file per persona, so the human reviews each persona's path
+    on its own and switches with `P` / `Shift+P`. The combined file is the ONLY one
+    you edit: tag every screen `data-personas="<slug> …"` (the personas whose path
+    includes it, in path order, so each persona's first tagged screen is its start),
+    then run `bash harness/split-mockup.sh`. It writes `<base>-<slug>.html` beside the
+    source (`v1-parent.html`, `mockup-kid.html`): only that persona's screens, at the
+    viewport from its persona doc, with links to screens it lacks unwired. It also
+    links all of them with `<meta name="mockup-files">`. Never hand-edit a generated
+    file. The workflow gate fails when one is stale.
   - The non-happy states the persona will actually hit (empty, error, validation,
     loading, offline / sync pending) as their own screens.
   - Realistic sample data in the persona's words — no lorem ipsum, no "Item 1".

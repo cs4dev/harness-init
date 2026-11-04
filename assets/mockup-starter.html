@@ -22,8 +22,11 @@
                     · P / Shift+P next/previous persona file · ? shortcuts · Esc close
     unwired clicks  flash what IS clickable
   Optional:
+    data-personas="<slug> …" on a screen   several personas: whose path includes it;
+                    harness/split-mockup.sh then writes one file per persona beside this
+                    one and links them (below). Edit only this file, re-run the split.
     <meta name="mockup-files" content="All screens=v1.html; Field technician=v1-field-technician.html">
-                    sibling mockups (e.g. one per persona) for the persona switch; the
+                    sibling mockups (written by split-mockup.sh) for the persona switch; the
                     current screen and ?query carry over when switching
     --mk-accent     CSS variable: the layer's accent colour (set it to the brand's)
     mockup.addShortcut(keys, label, fn[, shown])   project keys, listed in the card;

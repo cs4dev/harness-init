@@ -34,6 +34,7 @@ put "$A/validate-workflow.sh" harness/validate-workflow.sh exec
 put "$A/sync-agents.sh" harness/sync-agents.sh exec
 put "$A/guard-artifact-write.sh" harness/guard-artifact-write.sh exec
 put "$A/check-mockup.sh" harness/check-mockup.sh exec
+put "$A/split-mockup.sh" harness/split-mockup.sh exec
 put "$A/mockup-starter.html" harness/workflow/mockup-starter.html
 verbatim_kept=$kept
 
