@@ -5,8 +5,8 @@
 > stage/status. ONE task active at a time.
 
 ## Tracks
-`solo: dev(gate) → done` · `fast: spec → [mockup] → dev → review∥qa → done` · `full: design → [mockup] → dev → review∥qa → done`
-`[mockup]` = optional, on the persona trigger; human sign-off before dev.
+`solo: dev(gate) → done` · `fast: [mockup] → spec → dev → review∥qa → done` · `full: [mockup] → design → dev → review∥qa → done`
+`[mockup]` = every fast/full task that adds or changes a screen or flow (GUI projects): personas named first (step 0), then a static-HTML mockup the human approves before any spec, design, or code.
 
 ## Active
 _None._

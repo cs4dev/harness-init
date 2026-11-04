@@ -68,8 +68,9 @@ mutate() {
   expect fail "rejects: $1" bash "$d/harness/validate-workflow.sh"
 }
 mi=0
-mutate "undefined stage in a track"   harness/workflow/workflow.yaml 's/^  fast: \[spec,/  fast: [spek,/'
-mutate "undefined optional stage"     harness/workflow/workflow.yaml 's/^  fast: \[spec, mockup\?,/  fast: [spec, mokup?,/'
+mutate "undefined stage in a track"   harness/workflow/workflow.yaml 's/^  fast: \[mockup\?, spec,/  fast: [mockup?, spek,/'
+mutate "undefined optional stage"     harness/workflow/workflow.yaml 's/^  fast: \[mockup\?,/  fast: [mokup?,/'
+mutate "bad rollback to mockup"       harness/workflow/workflow.yaml 's/to: mockup/to: mokup/'
 mutate "bad rollback target"          harness/workflow/workflow.yaml 's/to: design/to: desgin/'
 mutate "bad next target"              harness/workflow/workflow.yaml 's/next: done$/next: dnoe/'
 mutate "tier yaml↔contract drift"     harness/workflow/workflow.yaml 's/^  code-reviewer: medium/  code-reviewer: heavy/'
@@ -134,13 +135,13 @@ expect fail "user's own same-named agent is not overwritten" bash "$d/harness/sy
 grep -q '^mine$' "$d/.claude/agents/developer.md" && ok "user agent left intact" || bad "user agent overwritten"
 
 printf '\n=== F. check-mockup.sh ===\n'
-d="$TMP/g1"; fresh "$d"; mk="$d/docs/tasks/T-001/mockup.html"
+d="$TMP/g1"; fresh "$d"; mk="$d/docs/tasks/T-001/mockup.html"; sp="$d/docs/tasks/T-001/spec.md"
 mkdir -p "$d/docs/tasks/T-001" "$d/docs/personas"
 echo '# Persona — Field technician' > "$d/docs/personas/field-technician.md"
-printf -- '- AC-1 next job one tap away\n- AC-2 offline state visible\n- AC-3 server rejects closed jobs\n' > "$d/docs/tasks/T-001/spec.md"
 expect pass "no mockups yet → PASS" bash "$d/harness/check-mockup.sh"
 cp assets/mockup-starter.html "$mk"
-expect pass "starter (persona + spec in place) passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+# Mockup-first: at the mockup stage there is no spec yet.
+expect pass "starter, no spec yet (mockup stage) passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
 expect pass "workflow gate passes with a valid mockup" bash "$d/harness/validate-workflow.sh"
 # mock <label> <sed-expr> — each mutation of the starter must FAIL the checker.
 mock() {
@@ -153,16 +154,47 @@ mock "data-goto to no screen"         's#data-goto="signoff"#data-goto="sign-off
 mock "unreachable screen"             's#data-goto="done"#data-goto="jobs"#'
 mock "duplicate screen id"            's#data-screen="done"#data-screen="job"#'
 mock "no screens"                     's#data-screen=#data-view=#g'
-mock "AC neither shown nor declared"  's#name="ac-non-visual" content="AC-3"#name="ac-non-visual" content=""#'
-mock "cites an AC the spec lacks"     's#data-ac="AC-1"#data-ac="AC-1 AC-9"#'
 mock "persona with no docs/personas/" 's#content="field-technician"#content="dispatcher"#'
 mock "no persona meta"                's#<meta name="persona"[^>]*>##'
 sed -E 's#<h1>Today#<!-- <a data-goto="ghost"></a> --><h1>Today#' assets/mockup-starter.html > "$mk"
 expect pass "markup in comments is ignored" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
 sed -E 's#data-goto="done"#data-goto="jobs"#' assets/mockup-starter.html > "$mk"
 expect fail "workflow gate fails on a broken docs/tasks mockup" bash "$d/harness/validate-workflow.sh"
-cp assets/mockup-starter.html "$mk"; rm "$d/docs/tasks/T-001/spec.md"
-expect fail "rejects: mockup with no spec.md/design.md" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+
+# Trace: once the spec exists, every AC names its screens and every screen is covered.
+cp assets/mockup-starter.html "$mk"
+spec_ok='- AC-1 next job one tap away [screen: jobs, job]\n- AC-2 sign-off required to close [screen: `signoff`, done]\n- AC-3 server rejects closed jobs [non-visual]\n\nTest plan: AC-1 → jobs.test, AC-3 → close.test\n'
+printf -- "$spec_ok" > "$sp"
+expect pass "spec traced to every screen passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+# trace <label> <sed-expr on the spec> — each must FAIL.
+trace() { printf -- "$spec_ok" | sed -E "$2" > "$sp"; expect fail "rejects: $1" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"; }
+trace "AC with no screen tag"         's# \[non-visual\]##'
+trace "AC traced to a missing screen" 's#\[screen: jobs, job\]#[screen: jobs, job, history]#'
+trace "approved screen left uncovered" 's#, done\]#]#'
+printf -- "$spec_ok" > "$sp"; mv "$sp" "$d/docs/tasks/T-001/design.md"
+expect pass "design.md (full track) is traced too" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+rm "$d/docs/tasks/T-001/design.md"
+
+# Init's v1 mockup traces against SPEC.md.
+mkdir -p "$d/docs/mockups"; cp assets/mockup-starter.html "$d/docs/mockups/v1.html"
+expect pass "docs/mockups/v1.html before SPEC passes" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/v1.html"
+printf -- '## §8\n- AC-1 jobs listed [screen: jobs]\n' > "$d/SPEC.md"
+expect fail "rejects: v1 mockup screens uncovered by SPEC §8" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/v1.html"
+expect fail "workflow gate scans docs/mockups/" bash "$d/harness/validate-workflow.sh"
+printf -- "$spec_ok" > "$d/SPEC.md"
+expect pass "v1 mockup traced by SPEC §8 passes" bash "$d/harness/check-mockup.sh"
+rm -r "$d/SPEC.md" "$d/docs/mockups"
+
+# Legacy (pre-mockup-first): criteria tagged in the markup still check the old way.
+sed -E 's#<title>#<meta name="ac-non-visual" content="AC-3"><title>#; s#class="banner">#class="banner" data-ac="AC-2">#; s#data-goto="job">#data-goto="job" data-ac="AC-1">#' \
+  assets/mockup-starter.html > "$mk"
+printf -- '- AC-1 next job\n- AC-2 offline state\n- AC-3 server rule\n' > "$sp"
+expect pass "legacy data-ac mockup still passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+printf -- '- AC-1 next job\n- AC-2 offline state\n- AC-3 server rule\n- AC-4 new\n' > "$sp"
+expect fail "rejects: legacy AC neither shown nor declared" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+rm "$sp"
+expect fail "rejects: legacy mockup with no spec" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+grep -q 'data-ac' assets/mockup-starter.html && bad "starter still tags criteria (mockup comes before the spec)" || ok "starter carries no AC tags"
 grep -qE '\{\{[A-Z0-9_]+\}\}' assets/mockup-starter.html && bad "starter has a {{…}} placeholder (fails project gates' section 0)" || ok "starter has no {{…}} placeholder"
 
 printf '\n=== G. Docs ↔ files ===\n'

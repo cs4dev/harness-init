@@ -1,16 +1,24 @@
 #!/usr/bin/env bash
-# Mockup gate (workflow stage `mockup`, role ux-designer). Checks a task's
-# docs/tasks/<id>/mockup.html against the conventions in roles/ux-designer.md:
+# Mockup gate (workflow stage `mockup`, role ux-designer). Checks a mockup against the
+# conventions in roles/ux-designer.md:
 #   - self-contained: no external URLs (it must open from file:// with no network)
 #   - persona: <meta name="persona"> names slugs that exist in docs/personas/
 #   - flow: data-screen ids unique, every data-goto lands on a screen, every screen
 #           reachable from the first one
-#   - coverage: every AC-n in the task's spec.md/design.md appears in a data-ac or in
-#           <meta name="ac-non-visual">, and the mockup cites no AC the spec lacks
+#   - trace, once the spec exists (the mockup comes FIRST, so at the mockup stage there
+#           is none yet): every AC-n is tagged `[screen: <id>, …]` or `[non-visual]`
+#           on the line that defines it, every tagged screen exists, and every screen
+#           of the mockup is covered by at least one AC.
+#           Spec = the task's spec.md/design.md; for docs/mockups/*.html (the v1
+#           mockup approved at init) it is SPEC.md.
+#   - legacy (mockups made before mockup-first, which tag criteria in the markup with
+#           data-ac / <meta name="ac-non-visual">): every AC-n of the spec is shown or
+#           declared, and the mockup cites no AC the spec lacks.
 # Markup inside <script> and <!-- --> is ignored for the flow/coverage scan.
 #
 # Usage: check-mockup.sh <task-dir|mockup.html>…   check those
-#        check-mockup.sh                          check every docs/tasks/*/mockup.html
+#        check-mockup.sh                          check every docs/tasks/*/mockup.html and
+#                                                 docs/mockups/*.html
 #                                                 (none → PASS; called by validate-workflow.sh)
 set -uo pipefail
 cd "$(dirname "$0")/.."
@@ -42,18 +50,34 @@ check() {  # check <mockup.html>
     done
   fi
 
-  specs=""; for s in "$dir/design.md" "$dir/spec.md"; do [ -f "$s" ] && specs="$specs $s"; done
-  if [ -z "$specs" ]; then bad "no spec.md/design.md next to the mockup"; acs=""
+  case "$f" in
+    docs/mockups/*|*/docs/mockups/*) cands="SPEC.md" ;;
+    *) cands="$dir/design.md $dir/spec.md" ;;
+  esac
+  specs=""; for s in $cands; do [ -f "$s" ] && specs="$specs $s"; done
+  # Legacy = criteria tagged in the markup (outside <script>, where the runtime lives).
+  mode=trace
+  sed '/<script/,/<\/script>/d' "$f" | grep -qiE "data-ac[[:space:]]*=|name=[\"']ac-non-visual[\"']" && mode=legacy
+  acs=""; trace=""
+  if [ -z "$specs" ]; then
+    if [ "$mode" = legacy ]; then bad "no spec.md/design.md next to the mockup"
+    else ok "no spec yet — the AC ↔ screen trace is checked once $(echo $cands | sed 's# # or #') exists"; mode=none; fi
   else
     acs=$(cat $specs | grep -oE 'AC-[0-9]+' | sort -u | tr '\n' ' ')
     [ -n "$acs" ] || bad "spec has no AC-n ids (analyst/architect number criteria AC-1, AC-2, …)"
+    # "AC-n s1 s2" per tagged line (first AC-n on the line), "AC-n -" for non-visual.
+    trace=$(cat $specs | awk '
+      match($0, /AC-[0-9]+/) { ac = substr($0, RSTART, RLENGTH)
+        if ($0 ~ /\[non-visual\]/) { print ac, "-"; next }
+        if (match($0, /\[screens?:[^]]*\]/)) { t = substr($0, RSTART, RLENGTH)
+          sub(/^\[screens?:/, "", t); sub(/\]$/, "", t); gsub(/[`,]/, " ", t); print ac, t } }')
   fi
   nonvis=$(meta "$f" ac-non-visual)
 
   # One pass over the markup: strip <script>/comments, then walk the data-* tokens in
   # document order. A goto belongs to the last screen opened before it; gotos before
   # the first screen are shared chrome, reachable from every screen.
-  out=$(SPEC_ACS="$acs" NONVIS="$nonvis" awk -v q="'" '
+  out=$(MODE="$mode" SPEC_ACS="$acs" NONVIS="$nonvis" TRACE="$trace" awk -v q="'" '
     { doc = doc $0 "\n" }
     function strip(from, upto,   lo, i, j, r) {
       r = ""; lo = tolower(doc)
@@ -89,17 +113,29 @@ check() {  # check <mockup.html>
         for (e = 1; e <= ne; e++) { split(edges[e], pr, SUBSEP)
           if ((pr[1] == "" || pr[1] in seen) && (pr[2] in screen) && !(pr[2] in seen)) { seen[pr[2]] = 1; changed = 1 } } }
       for (s = 1; s <= ns; s++) if (!(order[s] in seen)) print "BAD screen \"" order[s] "\" unreachable from " order[1]
-      n = split(ENVIRON["NONVIS"], nv, /[[:space:]]+/); for (k = 1; k <= n; k++) if (nv[k] != "") nonvis[nv[k]] = 1
-      n = split(ENVIRON["SPEC_ACS"], sa, /[[:space:]]+/)
-      for (k = 1; k <= n; k++) if (sa[k] != "") { spec[sa[k]] = 1
-        if (!(sa[k] in cited) && !(sa[k] in nonvis)) print "BAD " sa[k] " neither shown (data-ac) nor declared ac-non-visual" }
-      for (c in cited)  if (!(c in spec)) print "BAD data-ac cites " c ", which the spec does not define"
-      for (c in nonvis) if (!(c in spec)) print "BAD ac-non-visual lists " c ", which the spec does not define"
+      n = split(ENVIRON["SPEC_ACS"], sa, /[[:space:]]+/); for (k = 1; k <= n; k++) if (sa[k] != "") spec[sa[k]] = 1
+      if (ENVIRON["MODE"] == "legacy") {
+        n = split(ENVIRON["NONVIS"], nv, /[[:space:]]+/); for (k = 1; k <= n; k++) if (nv[k] != "") nonvis[nv[k]] = 1
+        for (x in spec) if (!(x in cited) && !(x in nonvis)) print "BAD " x " neither shown (data-ac) nor declared ac-non-visual"
+        for (c in cited)  if (!(c in spec)) print "BAD data-ac cites " c ", which the spec does not define"
+        for (c in nonvis) if (!(c in spec)) print "BAD ac-non-visual lists " c ", which the spec does not define"
+      } else if (ENVIRON["MODE"] == "trace") {
+        n = split(ENVIRON["TRACE"], tl, "\n")
+        for (k = 1; k <= n; k++) { m = split(tl[k], tf, /[[:space:]]+/); if (m < 2) continue
+          traced[tf[1]] = 1
+          for (j = 2; j <= m; j++) { if (tf[j] == "" || tf[j] == "-") continue
+            if (tf[j] in screen) covered[tf[j]] = 1
+            else print "BAD " tf[1] " traces to screen \"" tf[j] "\", which the mockup does not have" } }
+        for (x in spec) if (!(x in traced)) print "BAD " x " has no [screen: <id>, …] or [non-visual] tag on its line in the spec"
+        for (s = 1; s <= ns; s++) if (!(order[s] in covered))
+          print "BAD screen \"" order[s] "\" is covered by no AC (the spec must cover every approved screen)"
+      }
     }' "$f") || out="BAD markup scan failed (awk exit $?)"
+
   case "$out" in *BAD*|*"OK "*screens*) ;; *) out="$out
 BAD markup scan produced no screen summary" ;; esac
   case "$out" in *BAD*) ;; *) [ -n "$acs" ] && out="$out
-OK acceptance criteria covered: $acs" ;; esac
+OK every acceptance criterion traced ($mode): $acs" ;; esac
   while IFS= read -r line; do
     case "$line" in OK\ *) ok "${line#OK }" ;; BAD\ *) bad "${line#BAD }" ;; esac
   done <<EOF
@@ -108,8 +144,9 @@ EOF
 }
 
 if [ $# -eq 0 ]; then
-  set -- docs/tasks/*/mockup.html
-  [ -e "$1" ] || { printf '=== Mockups ===\n  - none under docs/tasks/\n\nMOCKUP: PASS\n'; exit 0; }
+  set --
+  for m in docs/mockups/*.html docs/tasks/*/mockup.html; do [ -e "$m" ] && set -- "$@" "$m"; done
+  [ $# -gt 0 ] || { printf '=== Mockups ===\n  - none under docs/mockups/ or docs/tasks/\n\nMOCKUP: PASS\n'; exit 0; }
 fi
 for t in "$@"; do
   [ -d "$t" ] && t="${t%/}/mockup.html"

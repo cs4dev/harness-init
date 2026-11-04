@@ -1,30 +1,30 @@
 <!doctype html>
 <!--
-  Mockup starter — copy to docs/tasks/<id>/mockup.html, then replace the example.
+  Mockup starter — copy to docs/tasks/<id>/mockup.html (or docs/mockups/v1.html at
+  init), then replace the example. The mockup comes FIRST: there is no spec yet. The
+  spec written after approval cites these screen ids (`AC-3 [screen: signoff]`).
   Conventions (checked by harness/check-mockup.sh; full text in roles/ux-designer.md):
     persona meta    slugs of docs/personas/*.md this mockup was designed for
-    ac-non-visual   criteria with no UI, declared, never silently skipped
     body data-device   phone | tablet | desktop: the persona's viewport
-    sections        one per screen, siblings; the FIRST is the start screen
+    sections        one per screen, siblings; the FIRST is the start screen; ids are
+                    stable kebab-case names the spec will cite
     goto attrs      navigation; every screen must be reachable from the start
-    ac attrs        on the element that demonstrates that acceptance criterion
   Shared chrome (banners, tab bars) goes BEFORE the first screen.
   Self-contained: inline CSS/JS/SVG only. No external URLs, no CDNs, no web fonts.
-  The review bar (screen list, "Show criteria") is built by the script below; it is
-  review chrome, not part of the design.
+  The review bar (screen picker) is built by the script below; it is review chrome,
+  not part of the design.
 -->
 <html lang="en">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="persona" content="field-technician">
-<meta name="ac-non-visual" content="AC-3">
 <title>Mockup — Close out a work order</title>
 <style>
   :root {
     --bg: #eef0f3; --surface: #ffffff; --ink: #14171c; --muted: #5b6370;
     --line: #d5d9e0; --accent: #0b63ce; --accent-ink: #ffffff;
-    --warn-bg: #fff4d6; --warn-ink: #6b4a00; --ok: #1d7a46; --mark: #d4398f;
+    --warn-bg: #fff4d6; --warn-ink: #6b4a00; --ok: #1d7a46;
     --frame-w: 390px; --frame-h: 780px; --tap: 48px;
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
@@ -60,24 +60,21 @@
   .sig { height: 140px; border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; }
   [data-goto] { cursor: pointer; }
 
-  /* Review overlay (toggled by "Show criteria"). */
+  /* Review bar. */
   .review { position: fixed; inset: 0 0 auto 0; display: flex; gap: 8px; align-items: center;
             padding: 8px 12px; background: var(--ink); color: var(--bg); font-size: .85rem; z-index: 9; flex-wrap: wrap; }
-  .review select, .review button { font: inherit; }
-  body.show-ac [data-ac] { outline: 2px dashed var(--mark); outline-offset: 2px; position: relative; }
-  body.show-ac [data-ac]::after { content: attr(data-ac); position: absolute; top: -10px; right: -6px;
-            background: var(--mark); color: #fff; font: 700 11px/1 system-ui; padding: 3px 5px; border-radius: 4px; }
+  .review select { font: inherit; }
 </style>
 </head>
 <body data-device="phone">
 <div class="device">
 
   <!-- Shared chrome: before the first screen, visible on every screen. -->
-  <div class="banner" data-ac="AC-2">Offline: 1 update waiting to sync</div>
+  <div class="banner">Offline: 1 update waiting to sync</div>
 
   <section data-screen="jobs">
     <h1>Today · 3 jobs</h1>
-    <button class="card" data-goto="job" data-ac="AC-1">
+    <button class="card" data-goto="job">
       <strong>WO-2291 · Rooftop unit not cooling</strong><br>
       <span class="muted">Harbor Plaza, Bldg C · 09:30</span> <span class="pill">Next</span>
     </button>
@@ -136,9 +133,6 @@
   });
   pick.onchange = function () { location.hash = pick.value; };
   bar.appendChild(pick);
-  var t = document.createElement('button'); t.textContent = 'Show criteria';
-  t.onclick = function () { document.body.classList.toggle('show-ac'); };
-  bar.appendChild(t);
   document.body.appendChild(bar);
   show(location.hash.slice(1));
 })();

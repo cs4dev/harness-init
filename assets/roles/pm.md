@@ -28,16 +28,22 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
     dependency/service. "Unsure" between solo and fast → fast; a full-track trigger
     is never a judgment call — it's on the list or it isn't.
   - If solo/fast work later hits a full-track trigger, promote; never demote mid-task.
-- **Optional `mockup` stage** (fast/full) — include it when the task adds or changes a
-  screen or flow a persona in `docs/personas/` sees or uses; log the trigger and the
-  persona slug(s) in `task.md`. No `docs/personas/` → never include it. Unsure → include
-  it (a skipped mockup is the expensive mistake). Once included, it stays.
+- **UI tasks on GUI projects** (`docs/personas/` exists; fast/full) — mechanical, not
+  a judgment call. The task adds or changes a screen or flow → it gets the `mockup`
+  stage, FIRST. It doesn't → no mockup. Unsure → it does. Once included, it stays.
+  - **Step 0, at task creation, before any stage runs:** name the persona(s) the task
+    is for in `task.md` (slugs from `docs/personas/`). None fits → ask the human who
+    it's for (device, context of use, top tasks, must-never-happen), write
+    `docs/personas/<slug>.md` from their answers, then route the mockup.
+  - Then `mockup` (ux-designer), then `spec`/`design`. Nothing else — no spec, design,
+    or code — is produced until the human has approved the mockup.
 - **Human sign-off on `approval: human` stages** (the mockup): when
   `harness/check-mockup.sh docs/tasks/<id>` exits 0, give the human the file path to
-  open (`open docs/tasks/<id>/mockup.html`) and ask: approve, or what to change. Record
-  the reply VERBATIM in the routing log. Change requests → append them to `task.md`
-  and re-run `ux-designer` (same stage, not a rollback). `dev` starts only on an
-  explicit approval — never on silence or your own reading of the mockup.
+  open (`open docs/tasks/<id>/mockup.html`) and the designer's screen list, and ask:
+  approve, or what to change. Record the reply VERBATIM in the routing log. Change
+  requests → append them to `task.md` and re-run `ux-designer` (same stage, not a
+  rollback). The next stage starts only on an explicit approval — never on silence or
+  your own reading of the mockup. A later rollback to `mockup` needs a fresh approval.
 - Advance to `next`, or roll back to a prior stage, based strictly on the artifact and the workflow's rollback `when` conditions.
 - Which specialist runs the next leg. After `dev`, spawn `review` AND `qa` in ONE
   message (parallel). `done` requires review=APPROVE and qa=PASS; either failure
