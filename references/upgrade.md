@@ -46,5 +46,7 @@ never touch them; if their template changed, just tell the user what changed.
    persona interview (SKILL.md Q5) → `docs/personas/<slug>.md` from
    `assets/templates/docs/persona.md`, plus the context.md Personas section. Without
    personas the stage never triggers — the upgrade is still complete.
-9. Suggest a commit ("harness: upgrade workflow assets") — the user decides.
+9. Suggest a commit ("harness: upgrade workflow assets") — the user decides. If step 7
+   added or renamed any `.claude/agents/` file, tell the user to restart Claude Code
+   (`claude --continue`) first: agents load only at session start.
 

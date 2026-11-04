@@ -195,6 +195,10 @@ every other file is independent once the sign-off is in. So:
 **3c.** Suggest a git commit ("harness: Level-3 scaffold") — the user decides.
 
 ### 4. Teach the loop (tell the user, briefly)
+- **Restart Claude Code before the first task.** Claude Code reads `.claude/agents/`
+  only at session start, so the role sub-agents this scaffold just wrote don't exist
+  in this session yet; spawning one fails with `Agent type '<role>' not found`.
+  `claude --continue` restarts and keeps the conversation.
 - Every session starts with `harness/skills/resume.md`: git state → task-board →
   baseline `--no-boot` gate. The board and git are the truth, not chat memory.
 - New feature = new task `T-00X`: PM (the main session) writes `docs/tasks/T-00X/task.md`,
