@@ -142,6 +142,9 @@ expect pass "no mockups yet → PASS" bash "$d/harness/check-mockup.sh"
 cp assets/mockup-starter.html "$mk"
 # Mockup-first: at the mockup stage there is no spec yet.
 expect pass "starter, no spec yet (mockup stage) passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+for m in "mk-bar" "mk-head" "mk-help" "mk-panel" "window.mockup" "addShortcut" "data-title=" "data-desc="; do
+  grep -qF -- "$m" assets/mockup-starter.html && ok "starter ships review layer: $m" || bad "starter lost review layer piece: $m"
+done
 expect pass "workflow gate passes with a valid mockup" bash "$d/harness/validate-workflow.sh"
 # mock <label> <sed-expr> — each mutation of the starter must FAIL the checker.
 mock() {

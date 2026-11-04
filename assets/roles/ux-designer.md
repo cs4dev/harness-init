@@ -21,7 +21,7 @@ At init the main session follows this contract to build the v1 mockup
   (`docs/mockups/`, `docs/tasks/*/mockup.html`) for existing screens and conventions the
   mockup must stay consistent with.
 - `harness/workflow/mockup-starter.html` — the starting point (runtime, markup
-  conventions, review bar).
+  conventions, review layer: bottom bar, screen header, shortcuts card).
 
 ## Produces
 - `docs/tasks/<id>/mockup.html` — ONE self-contained file, copied from the starter:
@@ -32,6 +32,17 @@ At init the main session follows this contract to build the v1 mockup
     screen. Shared chrome (tab bar, header) goes BEFORE the first screen. Screen ids
     are stable, descriptive kebab-case — the spec cites them (`[screen: job-detail]`).
   - Navigation via `data-goto="<screen-id>"` — every screen reachable from the start.
+  - `data-title` + `data-desc` on every screen: its name and one line, in the persona's
+    words, on what they do there. The starter's review layer shows them in the screen
+    header (`i`) and the screens panel (`0`). Keep that layer (bottom bar, header,
+    shortcuts card) as shipped and extend it with `mockup.addShortcut(…)`; don't fork it.
+    Set `--mk-accent` to the brand colour when there is one.
+  - Several personas (init's `docs/mockups/`): optionally one file per persona
+    (`v1-<slug>.html`, same screen ids, that persona's start screen first, only the
+    screens on their path) beside the combined `v1.html`, all linked with
+    `<meta name="mockup-files" content="All screens=v1.html; <Persona>=v1-<slug>.html">`
+    so the review bar can switch personas (`P`). Generate them from one source so they
+    can't drift.
   - The non-happy states the persona will actually hit (empty, error, validation,
     loading, offline / sync pending) as their own screens.
   - Realistic sample data in the persona's words — no lorem ipsum, no "Item 1".
