@@ -134,6 +134,12 @@ with real copy and the offline/error/empty states they'll hit. `check-mockup.sh`
 it if it loads anything external or has an unreachable screen. You open it, click
 through, and approve or send changes. No spec, design or code exists until you say yes.
 
+Every mockup comes with a review layer from the starter. A bottom bar has the screens
+panel, the persona switch, ‹ n/N › and the shortcuts. Each screen gets a header saying
+what it is (`i`), and a shortcuts card appears on the first visit. Keys: `0` for screens,
+`← →` to step through, `.` to hide the bar. Clicking something that isn't wired flashes
+what is. Headless screenshots leave the layer out unless the URL has `?bar`.
+
 The spec written after approval tags every acceptance criterion with the screens that
 show it (`AC-3 … [screen: signoff]`) or `[non-visual]`. `check-mockup.sh` fails the
 spec if a criterion is untagged or any approved screen is left uncovered. Dev builds to

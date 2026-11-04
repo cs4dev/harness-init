@@ -9,10 +9,26 @@
     sections        one per screen, siblings; the FIRST is the start screen; ids are
                     stable kebab-case names the spec will cite
     goto attrs      navigation; every screen must be reachable from the start
+    data-title / data-desc   per screen: the name + one line on what the persona does
+                    there (shown in the screen header and the screens panel)
   Shared chrome (banners, tab bars) goes BEFORE the first screen.
   Self-contained: inline CSS/JS/SVG only. No external URLs, no CDNs, no web fonts.
-  The review bar (screen picker) is built by the script below; it is review chrome,
-  not part of the design.
+
+  Review layer (built by the script below; review chrome, not part of the design):
+    bottom bar      ⌂ Screens · persona switch · ‹ n/N title › · ⓘ Info · ⌨ Shortcuts · ✕
+    screen header   what this screen is and where it sits in the flow (key i)
+    shortcuts card  shown once on first visit (key ?)
+    keys            0 screens panel · ← → prev/next · 1–9 screen N · i header · . hide bar
+                    · P / Shift+P next/previous persona file · ? shortcuts · Esc close
+    unwired clicks  flash what IS clickable
+  Optional:
+    <meta name="mockup-files" content="All screens=v1.html; Field technician=v1-field-technician.html">
+                    sibling mockups (e.g. one per persona) for the persona switch; the
+                    current screen and ?query carry over when switching
+    --mk-accent     CSS variable: the layer's accent colour (set it to the brand's)
+    mockup.addShortcut(keys, label, fn[, shown])   project keys, listed in the card;
+                    they override a default key. ?nobar hides the layer; headless
+                    Chrome hides it unless ?bar (clean screenshots).
 -->
 <html lang="en">
 <head>
@@ -26,6 +42,7 @@
     --line: #d5d9e0; --accent: #0b63ce; --accent-ink: #ffffff;
     --warn-bg: #fff4d6; --warn-ink: #6b4a00; --ok: #1d7a46;
     --frame-w: 390px; --frame-h: 780px; --tap: 48px;
+    --mk-accent: #0b63ce;
     font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   }
   @media (prefers-color-scheme: dark) {
@@ -39,7 +56,7 @@
   body { margin: 0; background: var(--bg); color: var(--ink); }
 
   /* Device frame: the persona's viewport, centered. */
-  .device { width: min(100%, var(--frame-w)); min-height: var(--frame-h); margin: 56px auto 24px;
+  .device { width: min(100%, var(--frame-w)); min-height: var(--frame-h); margin: 24px auto;
             background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
             overflow: hidden; display: flex; flex-direction: column; }
   body[data-device="desktop"] .device { border-radius: 8px; }
@@ -59,11 +76,6 @@
   .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; background: var(--line); font-size: .85rem; }
   .sig { height: 140px; border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; }
   [data-goto] { cursor: pointer; }
-
-  /* Review bar. */
-  .review { position: fixed; inset: 0 0 auto 0; display: flex; gap: 8px; align-items: center;
-            padding: 8px 12px; background: var(--ink); color: var(--bg); font-size: .85rem; z-index: 9; flex-wrap: wrap; }
-  .review select { font: inherit; }
 </style>
 </head>
 <body data-device="phone">
@@ -72,7 +84,7 @@
   <!-- Shared chrome: before the first screen, visible on every screen. -->
   <div class="banner">Offline: 1 update waiting to sync</div>
 
-  <section data-screen="jobs">
+  <section data-screen="jobs" data-title="Today's jobs" data-desc="See today's jobs and pick the next one.">
     <h1>Today · 3 jobs</h1>
     <button class="card" data-goto="job">
       <strong>WO-2291 · Rooftop unit not cooling</strong><br>
@@ -82,7 +94,7 @@
     <div class="card"><strong>WO-2302 · Leak under sink</strong><br><span class="muted">14 Rowan Ct · 15:30</span></div>
   </section>
 
-  <section data-screen="job">
+  <section data-screen="job" data-title="Job detail" data-desc="Address, gate code, contact and the fault before heading out.">
     <button class="back" data-goto="jobs">‹ Jobs</button>
     <h1>WO-2291 · Rooftop unit not cooling</h1>
     <p class="muted">Harbor Plaza, Bldg C · Gate code 4417 · Contact: Dana (front desk)</p>
@@ -90,14 +102,14 @@
     <button class="btn" data-goto="signoff">Finish job</button>
   </section>
 
-  <section data-screen="signoff">
+  <section data-screen="signoff" data-title="Customer sign-off" data-desc="The customer signs on the phone to close the job.">
     <button class="back" data-goto="job">‹ WO-2291</button>
     <h1>Customer sign-off</h1>
     <div class="sig muted">Sign here</div>
     <button class="btn" data-goto="done">Submit</button>
   </section>
 
-  <section data-screen="done">
+  <section data-screen="done" data-title="Job closed (offline)" data-desc="Confirmation; the close syncs when the phone is back online.">
     <h1 style="color: var(--ok)">Job closed</h1>
     <p>Saved on this phone. It will sync when you're back online.</p>
     <button class="btn ghost" data-goto="jobs">Back to today's jobs</button>
@@ -106,35 +118,219 @@
 </div>
 <script>
 // Mockup runtime: one screen at a time, hash routing (#screen-id deep links for review
-// comments), and a review bar. Uses dataset, never attribute strings, so the gate's
-// markup scan ignores it.
+// comments), and the review layer. Uses dataset, never attribute strings, so the gate's
+// markup scan ignores it. Extend via window.mockup (see the header comment); don't fork.
 (function () {
   var screens = Array.prototype.slice.call(document.querySelectorAll('section'))
     .filter(function (s) { return s.dataset.screen; });
-  function show(id) {
-    var hit = screens.filter(function (s) { return s.dataset.screen === id; })[0] || screens[0];
-    screens.forEach(function (s) { s.classList.toggle('on', s === hit); });
-    if (pick) pick.value = hit.dataset.screen;
-    window.scrollTo(0, 0);
+  var ids = screens.map(function (s) { return s.dataset.screen; });
+  var qs = location.search;
+  var noBar = /[?&]nobar\b/.test(qs) || (/HeadlessChrome/.test(navigator.userAgent) && !/[?&]bar\b/.test(qs));
+  var custom = {}, ui = null;
+  function store(k, v) { try { if (v === undefined) return localStorage.getItem(k); localStorage.setItem(k, v); } catch (e) { return null; } }
+  function esc(x) { return String(x).replace(/[&<>"]/g, function (c) { return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]; }); }
+  function cur() { var h = location.hash.slice(1); return ids.indexOf(h) >= 0 ? h : ids[0]; }
+  function info(id) {
+    var s = screens[ids.indexOf(id)], h = s && s.querySelector('h1');
+    return [s && s.dataset.title || (h ? h.textContent.trim() : id), s && s.dataset.desc || ''];
   }
+  function go(id) { if (ids.indexOf(id) >= 0) { location.hash = id; if (ui) ui.panel.hidden = true; } }
+  function step(d) { var j = ids.indexOf(cur()) + d; if (ids[j]) go(ids[j]); }
+  function show() {
+    var c = cur();
+    screens.forEach(function (s) { s.classList.toggle('on', s.dataset.screen === c); });
+    window.scrollTo(0, 0);
+    if (ui) ui.refresh();
+  }
+
+  // Sibling files (e.g. one mockup per persona) for the persona switch.
+  var files = [], here = decodeURIComponent(location.pathname.split('/').pop() || '');
+  var fm = document.querySelector('meta[name="mockup-files"]');
+  if (fm) fm.content.split(';').forEach(function (p) {
+    var kv = p.split('='); if (kv.length === 2 && kv[1].trim()) files.push([kv[0].trim(), kv[1].trim()]);
+  });
+  var fi = files.map(function (f) { return f[1]; }).indexOf(here);
+  function persona(d) {
+    if (files.length < 2) return;
+    var j = ((fi < 0 ? 0 : fi) + d + files.length) % files.length;
+    location.href = files[j][1] + location.search + location.hash;
+  }
+  var personaMeta = document.querySelector('meta[name="persona"]');
+  var who = fi >= 0 ? files[fi][0] : (personaMeta ? personaMeta.content : '?');
+
   document.addEventListener('click', function (e) {
     var el = e.target;
     while (el && !(el.dataset && el.dataset.goto)) el = el.parentElement;
-    if (el) { e.preventDefault(); location.hash = el.dataset.goto; }
+    if (el && !(el.closest && el.closest('.mk-ui'))) { e.preventDefault(); go(el.dataset.goto); return; }
+    // Unwired click on something that looks clickable → flash the real hotspots.
+    var t = e.target.closest && e.target.closest('button, a, [role="button"], .card, tr, [data-flash]');
+    if (ui && t && !t.closest('.mk-ui, [data-interactive], select, input, textarea, label')) {
+      document.body.classList.add('mk-flash'); setTimeout(function () { document.body.classList.remove('mk-flash'); }, 650);
+    }
   });
-  window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+  window.addEventListener('hashchange', show);
 
-  var bar = document.createElement('div'); bar.className = 'review';
-  var persona = document.querySelector('meta[name=persona]');
-  bar.appendChild(document.createTextNode('Mockup · ' + (persona ? persona.content : '?') + ' · '));
-  var pick = document.createElement('select');
-  screens.forEach(function (s) {
-    var o = document.createElement('option'); o.value = o.textContent = s.dataset.screen; pick.appendChild(o);
+  var defaults = [
+    { keys: ['0'], shown: '0', label: 'All screens' },
+    { keys: ['ArrowLeft', 'ArrowRight'], shown: '← →', label: 'Previous / next screen' },
+    { keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], shown: '1–9', label: 'Screen N' },
+    { keys: ['i'], shown: 'i', label: 'Show or hide the screen header' },
+    { keys: ['.'], shown: '.', label: 'Hide or show this bar' },
+    { keys: ['p', 'P'], shown: 'P ⇧P', label: 'Next / previous persona file', files: true },
+    { keys: ['?'], shown: '?', label: 'Show or hide these shortcuts' },
+    { keys: ['Escape'], shown: 'Esc', label: 'Close the panel or shortcuts' }
+  ];
+
+  if (!noBar) ui = build();
+  function build() {
+    var css = document.createElement('style');
+    css.textContent = [
+      '.mk-bar{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:1000;display:flex;align-items:center;gap:6px;padding:6px;background:#111;color:#fff;border:1px solid rgb(255 255 255/.14);border-radius:14px;box-shadow:0 10px 30px rgb(0 0 0/.28);font:500 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;max-width:calc(100vw - 24px);overflow-x:auto}',
+      '.mk-bar::-webkit-scrollbar{display:none}',
+      '.mk-bar button,.mk-bar select{all:unset;cursor:pointer;padding:6px 10px;border-radius:8px;color:rgb(255 255 255/.78);white-space:nowrap}',
+      '.mk-bar button:hover,.mk-bar select:hover{color:#fff;background:rgb(255 255 255/.1)}',
+      '.mk-bar button:disabled{opacity:.35;cursor:default;background:none}',
+      '.mk-bar select option{color:#111}',
+      '.mk-bar .pos{color:rgb(255 255 255/.6);font-variant-numeric:tabular-nums;padding:0 4px;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}',
+      '.mk-bar .pos b{color:#fff;font-weight:600}',
+      '.mk-bar .sep{width:1px;height:20px;background:rgb(255 255 255/.16);flex-shrink:0}',
+      '.mk-pill{position:fixed;left:14px;bottom:14px;z-index:1000;all:unset;cursor:pointer;width:40px;height:40px;border-radius:12px;background:var(--mk-accent,#2563eb);color:#fff;display:none;place-items:center;font:700 15px system-ui,sans-serif;box-shadow:0 8px 24px rgb(0 0 0/.25)}',
+      'body.mk-has-bar{padding-bottom:72px}',
+      'body.mk-flash [data-goto],body.mk-flash [data-interactive]{outline:2px solid var(--mk-accent,#2563eb) !important;outline-offset:2px}',
+      '.mk-help{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:1001;background:#111;color:#fff;border:1px solid rgb(255 255 255/.14);border-radius:12px;padding:12px 14px;font:500 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 30px rgb(0 0 0/.3);display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;white-space:nowrap}',
+      '.mk-help kbd{display:inline-block;min-width:20px;text-align:center;padding:1px 6px;border-radius:5px;background:rgb(255 255 255/.14);font:600 12px ui-monospace,Menlo,monospace;margin-right:2px}',
+      '.mk-help span{color:rgb(255 255 255/.75)}',
+      '.mk-help .foot{grid-column:1/-1;display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:6px;padding-top:8px;border-top:1px solid rgb(255 255 255/.14)}',
+      '.mk-help .foot button{all:unset;cursor:pointer;background:var(--mk-accent,#2563eb);color:#fff;padding:5px 12px;border-radius:8px;font-weight:600}',
+      '.mk-head{display:flex;align-items:center;gap:16px;padding:10px 20px;background:#fff;border-bottom:1px solid #e3e5ea;font:500 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;color:#111;position:sticky;top:0;z-index:6}',
+      '.mk-head .l{display:flex;align-items:center;gap:6px;flex-shrink:0}',
+      '.mk-head .chip{display:inline-flex;align-items:center;height:24px;padding:0 9px;border-radius:999px;border:1px solid #e3e5ea;font-size:12px;white-space:nowrap}',
+      '.mk-head .chip.brand{border-color:transparent;background:#eef1f7;color:var(--mk-accent,#2563eb);font-weight:600}',
+      '.mk-head .n{font-size:12px;color:#5f6470;white-space:nowrap;margin-left:4px}',
+      '.mk-head .c{flex:1;min-width:0}',
+      '.mk-head .c b{font-size:15px;font-weight:700;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
+      '.mk-head .c span{color:#5f6470;font-size:12.5px;line-height:1.4}',
+      '.mk-head .x{all:unset;cursor:pointer;width:28px;height:28px;display:grid;place-items:center;border-radius:8px;color:#5f6470}',
+      '.mk-head .x:hover{background:#f4f5f7;color:#111}',
+      '.mk-panel{position:fixed;inset:0;z-index:999;background:rgb(17 17 17/.35);display:grid;place-items:center;padding:24px}',
+      '.mk-panel>div{background:#fff;color:#111;border-radius:14px;padding:20px;max-width:1100px;width:100%;max-height:calc(100vh - 140px);overflow:auto;font:14px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}',
+      '.mk-panel h3{margin:0 0 4px;font-size:17px}',
+      '.mk-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(240px,1fr));gap:12px;margin-top:14px}',
+      '.mk-card{all:unset;cursor:pointer;display:flex;flex-direction:column;border:1px solid #e3e5ea;border-radius:12px;padding:12px 14px;transition:transform .12s,box-shadow .12s}',
+      '.mk-card:hover,.mk-card:focus-visible{transform:translateY(-2px);box-shadow:0 0 0 2px var(--mk-accent,#2563eb),0 10px 24px rgb(0 0 0/.12)}',
+      '.mk-card.cur{box-shadow:0 0 0 2px var(--mk-accent,#2563eb)}',
+      '.mk-card small{color:#5f6470}',
+      '.mk-card .d{color:#5f6470;font-size:12.5px;margin-top:4px;flex:1}',
+      '.mk-card .o{align-self:flex-end;margin-top:8px;padding:4px 10px;border-radius:999px;background:var(--mk-accent,#2563eb);color:#fff;font-size:12px;font-weight:600}',
+      '.mk-ui[hidden]{display:none !important}'
+    ].join('\n');
+    document.head.appendChild(css);
+    function make(tag, cls, html) { var e = document.createElement(tag); e.className = 'mk-ui ' + cls; if (html) e.innerHTML = html; return e; }
+
+    var head = make('header', 'mk-head');
+    document.body.insertBefore(head, document.body.firstChild);
+    var panel = make('div', 'mk-panel'); panel.hidden = true; document.body.appendChild(panel);
+    var help = make('div', 'mk-help'); document.body.appendChild(help);
+    var bar = make('div', 'mk-bar',
+      '<button data-nav="panel" title="All screens (0)">⌂ Screens</button><span class="sep"></span>' +
+      (files.length > 1 ? '<select title="Persona (P / Shift+P)">' + files.map(function (f, j) {
+        return '<option value="' + j + '"' + (j === fi ? ' selected' : '') + '>' + esc(f[0]) + '</option>'; }).join('') +
+        '</select><span class="sep"></span>' : '<span class="pos">' + esc(who) + '</span><span class="sep"></span>') +
+      '<button data-nav="prev" title="Previous screen (←)">‹</button><span class="pos" data-pos></span>' +
+      '<button data-nav="next" title="Next screen (→)">›</button><span class="sep"></span>' +
+      '<button data-nav="info" title="Screen header (i)">ⓘ Info</button>' +
+      '<button data-nav="help" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>' +
+      '<button data-nav="hide" title="Hide bar (.)">✕</button>');
+    document.body.appendChild(bar);
+    var pill = make('button', 'mk-pill', 'M'); pill.title = 'Show the review bar (.)'; document.body.appendChild(pill);
+
+    function setHead(h) { head.hidden = h; store('mk-head-hidden', h ? '1' : ''); }
+    function setBar(h) { bar.style.display = h ? 'none' : 'flex'; pill.style.display = h ? 'grid' : 'none';
+      document.body.classList.toggle('mk-has-bar', !h); store('mk-bar-hidden', h ? '1' : ''); }
+    function setHelp(h) { help.hidden = h; if (h) store('mk-help-seen', '1'); }
+    function renderHelp() {
+      var rows = defaults.filter(function (r) {
+        if (r.files && files.length < 2) return false;
+        return !r.keys.every(function (k) { return custom[k]; });
+      }).map(function (r) { return [r.shown, r.label]; });
+      var seen = {};
+      Object.keys(custom).forEach(function (k) { var c = custom[k]; if (!seen[c.id]) { seen[c.id] = 1; rows.push([c.shown, c.label]); } });
+      help.innerHTML = rows.map(function (r) {
+        return '<div>' + r[0].split(' ').map(function (k) { return '<kbd>' + esc(k) + '</kbd>'; }).join(' ') + '</div><span>' + esc(r[1]) + '</span>';
+      }).join('') + '<div class="foot"><span>Tip: click anything; unwired items flash what is clickable</span><button data-close>Got it</button></div>';
+    }
+    function togglePanel() {
+      if (!panel.hidden) { panel.hidden = true; return; }
+      var c = cur();
+      panel.innerHTML = '<div><h3>' + esc(who) + ' · ' + ids.length + ' screens</h3><small style="color:#5f6470">Click a screen · Esc to close</small><div class="mk-grid">' +
+        ids.map(function (id, j) { var m = info(id);
+          return '<button class="mk-card' + (id === c ? ' cur' : '') + '" data-s="' + esc(id) + '"><small>Screen ' + (j + 1) + ' · ' + esc(id) +
+            '</small><b>' + esc(m[0]) + '</b><span class="d">' + esc(m[1]) + '</span><span class="o">Open screen →</span></button>'; }).join('') + '</div></div>';
+      panel.hidden = false;
+    }
+    function refresh() {
+      var c = cur(), j = ids.indexOf(c), m = info(c);
+      bar.querySelector('[data-pos]').innerHTML = '<b>' + (j + 1) + '/' + ids.length + '</b> ' + esc(m[0]);
+      bar.querySelector('[data-nav=prev]').disabled = j <= 0;
+      bar.querySelector('[data-nav=next]').disabled = j >= ids.length - 1;
+      head.innerHTML = '<div class="l"><span class="chip brand">' + esc(document.title.replace(/^Mockup\s*[—-]\s*/, '')) +
+        '</span><span class="chip">' + esc(who) + '</span><span class="n">Screen ' + (j + 1) + ' of ' + ids.length + ' · ' + esc(c) + '</span></div>' +
+        '<div class="c"><b>' + esc(m[0]) + '</b><span>' + esc(m[1]) + '</span></div><button class="x" title="Hide header (i)">✕</button>';
+    }
+
+    head.addEventListener('click', function (e) { if (e.target.closest('.x')) setHead(true); });
+    panel.addEventListener('click', function (e) { var c = e.target.closest('.mk-card'); if (c) go(c.dataset.s); else if (e.target === panel) panel.hidden = true; });
+    help.addEventListener('click', function (e) { if (e.target.closest('[data-close]')) setHelp(true); });
+    pill.addEventListener('click', function () { setBar(false); });
+    bar.addEventListener('click', function (e) {
+      var b = e.target.closest('button'); if (!b) return; var n = b.dataset.nav;
+      if (n === 'panel') togglePanel(); else if (n === 'prev') step(-1); else if (n === 'next') step(1);
+      else if (n === 'info') setHead(!head.hidden); else if (n === 'help') setHelp(!help.hidden);
+      else if (n === 'hide') { setHelp(true); setBar(true); }
+    });
+    var sel = bar.querySelector('select');
+    if (sel) sel.addEventListener('change', function () { persona(+sel.value - (fi < 0 ? 0 : fi)); });
+
+    setHead(store('mk-head-hidden') === '1');
+    setBar(store('mk-bar-hidden') === '1');
+    help.hidden = store('mk-help-seen') === '1';
+    renderHelp();
+    return { panel: panel, refresh: refresh, renderHelp: renderHelp, togglePanel: togglePanel,
+             toggleHead: function () { setHead(!head.hidden); }, toggleBar: function () { setBar(bar.style.display !== 'none'); },
+             toggleHelp: function () { setHelp(!help.hidden); }, closeAll: function () { panel.hidden = true; if (!help.hidden) setHelp(true); } };
+  }
+
+  document.addEventListener('keydown', function (e) {
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    if (e.target.closest && e.target.closest('input, textarea, select, [contenteditable]')) return;
+    var k = e.key;
+    if (custom[k]) { custom[k].fn(e); e.preventDefault(); return; }
+    if (k === 'ArrowRight') step(1);
+    else if (k === 'ArrowLeft') step(-1);
+    else if (/^[1-9]$/.test(k)) go(ids[+k - 1]);
+    else if (k === 'p') persona(1);
+    else if (k === 'P') persona(-1);
+    else if (!ui) return;
+    else if (k === '0') ui.togglePanel();
+    else if (k === 'i') ui.toggleHead();
+    else if (k === '.') ui.toggleBar();
+    else if (k === '?') ui.toggleHelp();
+    else if (k === 'Escape') ui.closeAll();
+    else return;
+    e.preventDefault();
   });
-  pick.onchange = function () { location.hash = pick.value; };
-  bar.appendChild(pick);
-  document.body.appendChild(bar);
-  show(location.hash.slice(1));
+
+  var n = 0;
+  window.mockup = {
+    screens: ids.slice(), current: cur, go: go,
+    // addShortcut('o', 'Overview', fn) · addShortcut(['1','2'], 'Task N', fn, '1–9')
+    addShortcut: function (keys, label, fn, shown) {
+      keys = [].concat(keys); var id = ++n;
+      keys.forEach(function (k) { custom[k] = { id: id, label: label, fn: fn, shown: shown || keys.join(' ') }; });
+      if (ui) ui.renderHelp();
+    }
+  };
+  show();
 })();
 </script>
 </body>
