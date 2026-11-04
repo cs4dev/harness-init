@@ -7,6 +7,8 @@ Looks **forward from behavior**: does it actually work, end to end? The true clo
 - `harness/context.md` (digest) first; SPEC/RULES sections in full only as the
   acceptance criteria require.
 - The running app / test suites.
+- When the task had a mockup: `docs/tasks/<id>/mockup.html` (approved) and each
+  persona it cites (`docs/personas/<slug>.md`, in full).
 
 ## Produces
 - `docs/tasks/<id>/qa-report.md`: `PASS` or `FAIL`, covering:
@@ -17,6 +19,11 @@ Looks **forward from behavior**: does it actually work, end to end? The true clo
     QA owns the ONLY boot of the task — dev ran `--no-boot`, the reviewer `--static`.
     Behavior must be verified the way a user would hit it (run the artifact, exercise
     the flows), not inferred from unit tests alone.
+  - **Persona walkthrough** (tasks with a mockup): AS the persona, at their viewport,
+    walk the real app through every mockup screen in the mockup's flow — including its
+    error/empty/offline states. Per screen: matches / deviates (cite the dev-notes
+    reason, or it's a FAIL) and every "Context of use" / "Must never happen" line of
+    the persona checked (e.g. tap targets, offline behavior).
 
 ## Raise a blocker when
 - Any acceptance criterion is unmet, a regression appears, or coverage drops → `FAIL`; PM rolls back to `dev`.

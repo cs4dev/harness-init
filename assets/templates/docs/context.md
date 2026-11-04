@@ -9,5 +9,8 @@ build `{{BUILD_CMD}}` · test `{{TEST_CMD}}` · run `{{RUN_CMD}}` · gate `bash 
 ## Frozen rules (one-liners — full text in RULES.md)
 (R1 done = gate exits 0; R2 SPEC is law; + the domain rules, one line each)
 
+## Personas (GUI projects — full files in docs/personas/; delete this section otherwise)
+(slug — who, device · one line each; UI tasks get an optional mockup stage designed as them)
+
 ## File map (top level only — detail in docs/dev-map.md)
 (where server/client/shared/tests live, one line each)

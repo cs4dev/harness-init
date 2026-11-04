@@ -6,7 +6,9 @@ description: >
   three-track multi-agent workflow (solo: main session + gate, for trivial
   changes; fast — the DEFAULT: spec→dev→review∥qa; full — explicit triggers
   only: design→dev→review∥qa) with role contracts, a one-boot-per-task gate
-  split, and a workflow-sync gate.
+  split, and a workflow-sync gate. GUI projects also get personas and an
+  optional, human-approved interactive static-HTML mockup stage built as the
+  persona (e.g. a field technician on a work-order app).
   Stack resolution: invocation argument (/harness-init web
   app, Fastify + React) → scan of an existing repo (detect, confirm) → for empty
   repos, RECOMMEND 2-3 stacks for the human to pick. Commands, gate checks, and
@@ -51,16 +53,22 @@ interview, don't invent.
 ## Assets shipped with this skill
 - `assets/workflow.yaml` — the three-track relay (solo / fast / full, parallel review+qa,
   one-boot budget), generic, use VERBATIM.
-- `assets/roles/*.md` — 6 role contracts (pm, requirements-analyst, solution-architect,
-  developer, code-reviewer, qa-tester), generic, use VERBATIM.
+- `assets/roles/*.md` — 7 role contracts (pm, requirements-analyst, solution-architect,
+  ux-designer, developer, code-reviewer, qa-tester), generic, use VERBATIM.
 - `assets/validate-workflow.sh` — workflow↔contracts sync gate, generic, use VERBATIM (chmod +x).
 - `assets/sync-agents.sh` — renders `.claude/agents/<role>.md` from workflow.yaml (model
   from the tier; judge roles get the write guard hook); `--check` runs inside the
   workflow gate. `assets/guard-artifact-write.sh` — that PreToolUse hook: judge roles
   may write only under `docs/tasks/`. Both VERBATIM.
+- `assets/check-mockup.sh` — the mockup gate (self-contained, persona exists, every
+  screen reachable, every `AC-n` shown or declared non-visual); run by the ux-designer
+  and, over all `docs/tasks/*/mockup.html`, inside the workflow gate.
+  `assets/mockup-starter.html` — the runtime + conventions every mockup is copied from.
+  Both VERBATIM; shipped to every project (the stage simply never triggers without
+  `docs/personas/`).
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
   (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
-  task, context, resume): instantiate by filling `{{PLACEHOLDERS}}`.
+  task, context, resume, persona): instantiate by filling `{{PLACEHOLDERS}}`.
 - `scripts/scaffold.sh <target> <project-name>` — copies every verbatim asset plus the
   fixed doc templates, chmods, stamps `.harness-version`, runs the workflow-sync gate.
   Never clobbers. NEVER Read+Write a verbatim asset by hand — run this.
@@ -77,8 +85,9 @@ the interview.
 Keep it to ~2 rounds — each round trip is the human's wall-clock:
 - **Round 1:** Q0 alone (everything else derives from it) — skip if the argument
   answered it; a repo scan just needs its one-line confirm, which can ride along in round 2.
-- **Round 2:** Q1, Q2 and Q4 together in ONE AskUserQuestion call (it takes up to 4
-  questions); omit Q4 when the stack makes the commands obvious.
+- **Round 2:** Q1, Q2, Q4 and Q5 together in ONE AskUserQuestion call (it takes up to 4
+  questions); omit Q4 when the stack makes the commands obvious, Q5 when there's no
+  GUI client.
 - **Sign-off:** ONE summary message — drafted Q3 acceptance criteria + derived
   commands/B2 shape + rules — approved or corrected in one reply.
 
@@ -99,6 +108,15 @@ Required answers before writing anything frozen:
    Adapt B2 to the project type from Q0: server → boot + liveness probe; CLI → run the
    binary with a smoke arg and assert exit 0 + expected output; library → build + import
    smoke test. B2 always proves "it runs", whatever running means for this artifact.
+5. **Personas** — ONLY when the project has a web / GUI client (same condition as the
+   landing/404 rule): who uses it? Propose 2–4 personas from the Q0/Q1 answers with a
+   one-line context each and let the human pick/correct — e.g. for a work-order app:
+   *field technician* (phone, one hand, gloves, patchy signal, sunlight),
+   *dispatcher* (desktop, many jobs at once, assigns/reschedules),
+   *site contact* (opens an emailed link, approves completed work, rarely visits).
+   The sign-off summary then lists each persona's device, context-of-use, top tasks
+   and must-never-happen lines for correction. (feeds `docs/personas/<slug>.md`, the
+   context.md Personas section, and the optional `mockup` stage)
 
 ### 3. Generate — maximize parallelism, minimize gate boots
 Only `validate.sh` depends on anything (it needs the skeleton/commands to exist);
@@ -134,6 +152,9 @@ every other file is independent once the sign-off is in. So:
      full SPEC/RULES only where the task touches them. Regenerate it whenever
      commands/rules/layout change.
   5. `docs/dev-map.md` from `templates/docs/dev-map.md`.
+  5b. GUI client only: `docs/personas/<slug>.md` per signed-off persona, from
+     `templates/docs/persona.md` (kebab-case slug — tasks and mockups cite it). No
+     GUI → no `docs/personas/`, and delete context.md's Personas section.
   6. `scripts/init.sh` — CONDITIONAL: only when the Q0 stack has prerequisites to
      materialize (service containers, .env, migrations, codegen). One idempotent
      script: services up → `.env` from `.env.example` if absent → deps install →
@@ -181,6 +202,10 @@ every other file is independent once the sign-off is in. So:
   re-run `harness/sync-agents.sh`; the gate fails until you do); each reads
   `harness/context.md` first plus its contract's inputs and writes its artifact.
   Downstream NEVER edits upstream — blockers roll back via the PM.
+- GUI projects: a task that changes a screen or flow a persona uses gets the optional
+  `mockup` stage — `ux-designer` builds a clickable static-HTML mockup AS the persona;
+  the PM opens it for the human, and dev starts only on their explicit approval
+  (feedback re-runs the designer). QA later walks the real app through it as the persona.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
   requires both verdicts; either failure rolls back to dev and both re-run.
 - ONE boot per task: dev runs `validate.sh --no-boot`, reviewer `--static`, QA the

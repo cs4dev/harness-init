@@ -4,6 +4,8 @@ Looks **backward from the implementation**: did it build what was specified, sou
 
 ## Reads
 - `docs/tasks/<id>/design.md` (fast track: `spec.md`) and `dev-notes.md`.
+- `docs/tasks/<id>/mockup.html` when present — the approved flow; deviations the
+  dev-notes don't justify count as drift.
 - The actual diff/code.
 - `harness/context.md` (digest) first; `RULES.md` in full for the rules the diff touches.
 

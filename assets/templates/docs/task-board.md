@@ -5,7 +5,8 @@
 > stage/status. ONE task active at a time.
 
 ## Tracks
-`solo: dev(gate) → done` · `fast: spec → dev → review∥qa → done` · `full: design → dev → review∥qa → done`
+`solo: dev(gate) → done` · `fast: spec → [mockup] → dev → review∥qa → done` · `full: design → [mockup] → dev → review∥qa → done`
+`[mockup]` = optional, on the persona trigger; human sign-off before dev.
 
 ## Active
 _None._

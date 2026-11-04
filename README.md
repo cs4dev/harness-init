@@ -37,9 +37,10 @@ SPEC.md                  frozen v1, only after your sign-off
 RULES.md                 ~10 red lines, each mechanically checkable one gets a gate grep
 harness/validate.sh      the gate: A build · B tests · B2 boot the artifact · C rules · D workflow sync
 harness/context.md       ~30-line digest every sub-agent reads first
-harness/workflow/        three-track relay + 6 role contracts
+harness/workflow/        three-track relay + 7 role contracts + the mockup starter
 .claude/agents/          one sub-agent per role, rendered from workflow.yaml: model per
-                         tier; reviewer/QA/analyst/architect can write only docs/tasks/
+                         tier; reviewer/QA/analyst/architect/designer write only docs/tasks/
+docs/personas/           GUI projects only: who uses the app (device, context, top tasks)
 docs/task-board.md       append-only, one task active at a time
 .github/workflows/       CI materializes prerequisites, then runs the same gate
 ```
@@ -72,6 +73,26 @@ Promoted because it hits an explicit trigger: new endpoint, schema change, migra
 edits to frozen SPEC/RULES, a cross-package contract, or a new external dependency.
 Adds a `design` stage — the solution-architect writes binary acceptance criteria and the
 design in one artifact before any code exists.
+
+### Feature a persona will see — optional `mockup` stage
+
+> T-009: technicians capture the customer's signature before closing a job
+
+On a GUI project, the interview also captures **personas** (`docs/personas/*.md`), e.g. a
+work-order app's *field technician* (phone, gloves, patchy signal), *dispatcher*
+(desktop, many jobs at once) and *site contact* (emailed link, approves work). A task
+that changes a screen or flow one of them uses gets `mockup` between spec/design and
+dev:
+
+`spec → mockup → (you approve) → dev → review ∥ qa`
+
+The `ux-designer` builds `docs/tasks/T-009/mockup.html` **as the persona**: one
+self-contained static HTML file, clickable screen to screen at the persona's viewport,
+with real copy and the offline/error/empty states they'll hit. `check-mockup.sh` fails
+it if it loads anything external, has an unreachable screen, or leaves an acceptance
+criterion neither shown (`data-ac="AC-n"`) nor declared non-visual. You open it,
+click through, and approve or send changes. Dev doesn't start without your yes. Dev then
+builds to it, and QA walks the real app through the same screens as the persona.
 
 ### Bug fix — usually `fast`, sometimes `solo`
 
@@ -114,7 +135,8 @@ git -C ~/.claude/skills/harness-init pull
 ```
 
 It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
-`validate-workflow.sh` / `sync-agents.sh` / write-guard scripts, then re-renders
+`validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` scripts and the
+mockup starter, then re-renders
 `.claude/agents/`), keeps your local edits to them, never touches SPEC/RULES/
 `validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean
 git tree. Scaffolds record the skill commit in `harness/workflow/.harness-version`, so
