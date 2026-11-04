@@ -201,7 +201,7 @@ d="$TMP/g1"; fresh "$d"
 if [ -z "$(git status --porcelain assets)" ]; then
   [ "$(cat "$d/harness/workflow/.harness-version" 2>/dev/null)" = "$head" ] && ok "clone install stamps HEAD SHA" || bad "clone stamp: $(cat "$d/harness/workflow/.harness-version" 2>/dev/null)"
 else ok "assets/ dirty locally — SHA stamp check runs on a clean tree"; fi
-cache="$TMP/cache/harness-init/harness/$ver"; mkdir -p "$cache"
+cache="$TMP/cache/cs4dev/harness/$ver"; mkdir -p "$cache"
 git archive HEAD | tar -x -C "$cache"
 cp -R assets scripts .claude-plugin "$cache"/   # working-tree copy, like an install would be
 d="$TMP/g2"; mkdir -p "$d"; bash "$cache/scripts/scaffold.sh" "$d" demo >/dev/null 2>&1
