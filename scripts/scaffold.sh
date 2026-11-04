@@ -52,12 +52,10 @@ if [ -e "$stamp" ]; then
   printf '  - skip   .harness-version (exists — upgrade owns rewriting it)\n'
 elif [ "$verbatim_kept" -eq 1 ]; then
   printf '  - skip   existing verbatim assets were kept — HEAD would not be their base (upgrade will use 2-way diff)\n'
-elif ! head=$(git -C "$SKILL" rev-parse HEAD 2>/dev/null); then
-  printf '  - skip   skill dir is not a git checkout (upgrade will use 2-way diff)\n'
-elif [ -n "$(git -C "$SKILL" status --porcelain assets)" ]; then
-  printf '  - skip   skill assets/ dirty — HEAD would not match what was copied\n'
+elif ! ref=$(bash "$SKILL/scripts/version.sh" current 2>&1); then
+  printf '  - skip   %s (upgrade will use 2-way diff)\n' "$ref"
 else
-  printf '%s\n' "$head" > "$stamp" && printf '  ✓ stamp  %s\n' "$head"
+  printf '%s\n' "$ref" > "$stamp" && printf '  ✓ stamp  %s\n' "$ref"
 fi
 
 printf '\n=== Workflow sync ===\n'

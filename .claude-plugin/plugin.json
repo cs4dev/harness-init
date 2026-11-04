@@ -1,0 +1,9 @@
+{
+  "name": "harness-init",
+  "version": "1.0.0",
+  "description": "Scaffold a Level-3 Harness Engineering setup into any project: frozen SPEC, RULES, role SOPs, a master validation gate, and a three-track multi-agent workflow.",
+  "author": { "name": "cs4dev" },
+  "homepage": "https://github.com/cs4dev/harness-init",
+  "repository": "https://github.com/cs4dev/harness-init",
+  "keywords": ["harness", "scaffold", "validation-gate", "multi-agent", "workflow"]
+}

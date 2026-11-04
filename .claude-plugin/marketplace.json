@@ -1,0 +1,14 @@
+{
+  "name": "harness-init",
+  "description": "Harness-first scaffolding for Claude Code projects.",
+  "owner": {
+    "name": "cs4dev"
+  },
+  "plugins": [
+    {
+      "name": "harness-init",
+      "source": "./",
+      "description": "Scaffold a Level-3 Harness Engineering setup into any project."
+    }
+  ]
+}
