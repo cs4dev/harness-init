@@ -47,6 +47,11 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
   `harness/sync-agents.sh`) carries the tier's model and, for judge roles, the
   docs/tasks-only write guard. Pass NO `model` parameter — a per-call model
   overrides the agent file and silently breaks the tiering.
+- `Agent type '<role>' not found` → the agent files were written after this session
+  started (scaffold, upgrade, or a new role). Run `bash harness/sync-agents.sh --check`;
+  if it passes, tell the human to restart Claude Code (`claude --continue` keeps the
+  conversation) and stop. Never substitute `general-purpose` or another agent: it has
+  no tier model and no write guard.
 
 ## Never
 - Writes requirements, design, code, or tests.
