@@ -13,7 +13,10 @@ build" plus a where-it-lands note — small enough that no separate design stage
 - `docs/tasks/<id>/spec.md`, containing:
   - Problem statement (one paragraph).
   - In-scope list and explicit out-of-scope list.
-  - Acceptance criteria — each binary (pass/fail), no "should/can/optional" (RULES R2 discipline).
+  - Acceptance criteria — each binary (pass/fail), no "should/can/optional" (RULES R2
+    discipline), numbered `AC-1`, `AC-2`, … (mockup, tests, and QA cite them by id).
+  - Personas — when `docs/personas/` exists: the slug(s) whose screens or flows this
+    task changes, or "none" (the PM's mockup trigger reads this line).
   - Boundary/edge cases.
   - "Where it lands" — files/modules, citing `docs/dev-map.md`, so the developer
     needs no separate design.

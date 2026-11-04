@@ -44,13 +44,13 @@ for f in "$ROLES_DIR"/*.md; do
   fi
 done
 
-# 3. Every track references only defined stage ids.
+# 3. Every track references only defined stage ids (a trailing `?` marks an optional stage).
 all_stage_ids=$(grep -E '^[[:space:]]*-[[:space:]]*id:[[:space:]]' "$WF" | sed -E 's/.*id:[[:space:]]*//' | sort -u)
 track_lines=$(sed -n '/^tracks:/,/^[a-z]/p' "$WF" | grep -E '^[[:space:]]+[a-z]+:[[:space:]]*\[')
 if [ -n "$track_lines" ]; then
   while IFS= read -r line; do
     tname=$(echo "$line" | sed -E 's/^[[:space:]]*([a-z]+):.*/\1/')
-    tstages=$(echo "$line" | sed -E 's/.*\[(.*)\].*/\1/' | tr ',' '\n' | sed -E 's/[[:space:]]//g')
+    tstages=$(echo "$line" | sed -E 's/.*\[(.*)\].*/\1/' | tr ',' '\n' | sed -E 's/[[:space:]]//g; s/\?$//')
     tfail=0
     for s in $tstages; do
       echo "$all_stage_ids" | grep -qx "$s" || { bad "track '$tname' references undefined stage '$s'"; tfail=1; }
@@ -128,6 +128,15 @@ if [ -f harness/sync-agents.sh ]; then
   [ -f harness/guard-artifact-write.sh ] && ok "write guard present" || bad "missing harness/guard-artifact-write.sh"
 else
   bad "missing harness/sync-agents.sh"
+fi
+
+# 9. Mockups: a workflow with a mockup stage ships the checker, and every
+#    docs/tasks/*/mockup.html passes it (artifacts stay valid after their stage).
+if echo "$stage_rows" | awk '$3 == "mockup.html"' | grep -q .; then
+  if [ ! -f harness/check-mockup.sh ]; then bad "a stage produces mockup.html but harness/check-mockup.sh is missing"
+  elif bash harness/check-mockup.sh >/dev/null 2>&1; then ok "mockups pass check-mockup.sh"
+  else bad "a docs/tasks/*/mockup.html fails (run harness/check-mockup.sh)"; fi
+  [ -f harness/workflow/mockup-starter.html ] && ok "mockup starter present" || bad "missing harness/workflow/mockup-starter.html"
 fi
 
 if [ "$fail" -eq 0 ]; then printf '\nWORKFLOW: PASS\n'; exit 0

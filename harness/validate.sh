@@ -5,7 +5,8 @@
 # FAIL paths — a gate that never fails proves nothing.
 #
 # Categories: A syntax · B scaffold behavior · C workflow gate · D validate.sh
-# template · E sub-agents + write guard · F docs ↔ files · G plugin packaging + stamps.
+# template · E sub-agents + write guard · F mockup gate · G docs ↔ files ·
+# H plugin packaging + stamps.
 # Same conventions as the gates it ships: set -uo pipefail without -e,
 # [[:space:]] not \s, no GNU-only flags (CI runs Linux + macOS).
 set -uo pipefail
@@ -36,10 +37,11 @@ printf '\n=== B. scaffold.sh ===\n'
 name='R&D \1 "Tool"'
 expect pass "fresh scaffold exits 0" fresh "$TMP/b1" "$name"
 for p in harness/workflow/workflow.yaml harness/validate-workflow.sh docs/task-board.md \
-         harness/skills/resume.md docs/tasks; do
+         harness/skills/resume.md docs/tasks harness/check-mockup.sh harness/workflow/mockup-starter.html; do
   [ -e "$TMP/b1/$p" ] && ok "wrote $p" || bad "missing $p"
 done
 [ -x "$TMP/b1/harness/validate-workflow.sh" ] && ok "validate-workflow.sh is executable" || bad "validate-workflow.sh not executable"
+[ -x "$TMP/b1/harness/check-mockup.sh" ] && ok "check-mockup.sh is executable" || bad "check-mockup.sh not executable"
 n_roles=$(ls "$TMP/b1/harness/workflow/roles" | wc -l | tr -d ' ')
 [ "$n_roles" = "$(ls assets/roles | wc -l | tr -d ' ')" ] && ok "all $n_roles roles copied" || bad "roles copied: $n_roles"
 grep -qF "# Task Board — $name" "$TMP/b1/docs/task-board.md" \
@@ -67,6 +69,7 @@ mutate() {
 }
 mi=0
 mutate "undefined stage in a track"   harness/workflow/workflow.yaml 's/^  fast: \[spec,/  fast: [spek,/'
+mutate "undefined optional stage"     harness/workflow/workflow.yaml 's/^  fast: \[spec, mockup\?,/  fast: [spec, mokup?,/'
 mutate "bad rollback target"          harness/workflow/workflow.yaml 's/to: design/to: desgin/'
 mutate "bad next target"              harness/workflow/workflow.yaml 's/next: done$/next: dnoe/'
 mutate "tier yaml↔contract drift"     harness/workflow/workflow.yaml 's/^  code-reviewer: medium/  code-reviewer: heavy/'
@@ -75,6 +78,8 @@ mutate "contract missing ## Reads"    harness/workflow/roles/developer.md 's/^##
 mutate "produces not in contract"     harness/workflow/roles/qa-tester.md 's/qa-report\.md/qa.md/g'
 d="$TMP/c$((++mi))"; fresh "$d"; cp assets/roles/pm.md "$d/harness/workflow/roles/ghost.md"
 expect fail "rejects: orphan contract" bash "$d/harness/validate-workflow.sh"
+d="$TMP/c$((++mi))"; fresh "$d"; rm "$d/harness/check-mockup.sh"
+expect fail "rejects: mockup stage without check-mockup.sh" bash "$d/harness/validate-workflow.sh"
 
 printf '\n=== D. validate.sh template ===\n'
 d="$TMP/d1"; fresh "$d"; cp assets/templates/validate.sh.template "$d/harness/validate.sh"
@@ -97,7 +102,8 @@ n_agents=$(ls "$d/.claude/agents" | wc -l | tr -d ' ')
 [ ! -e "$d/.claude/agents/pm.md" ] && ok "no pm agent (PM is the main session)" || bad "pm.md rendered"
 grep -q '^model: opus$' "$d/.claude/agents/developer.md" && ok "developer → heavy → opus" || bad "developer model wrong"
 grep -q '^model: sonnet$' "$d/.claude/agents/code-reviewer.md" && ok "code-reviewer → medium → sonnet" || bad "code-reviewer model wrong"
-for r in requirements-analyst solution-architect code-reviewer qa-tester; do
+grep -q '^model: opus$' "$d/.claude/agents/ux-designer.md" && ok "ux-designer → heavy → opus" || bad "ux-designer model wrong"
+for r in requirements-analyst solution-architect ux-designer code-reviewer qa-tester; do
   grep -q 'guard-artifact-write.sh' "$d/.claude/agents/$r.md" && ok "$r has the write guard" || bad "$r missing the write guard"
 done
 grep -q 'hooks:' "$d/.claude/agents/developer.md" && bad "developer is guarded (it owns code)" || ok "developer unguarded"
@@ -127,14 +133,46 @@ printf -- '---\nname: developer\n---\nmine\n' > "$d/.claude/agents/developer.md"
 expect fail "user's own same-named agent is not overwritten" bash "$d/harness/sync-agents.sh"
 grep -q '^mine$' "$d/.claude/agents/developer.md" && ok "user agent left intact" || bad "user agent overwritten"
 
-printf '\n=== F. Docs ↔ files ===\n'
+printf '\n=== F. check-mockup.sh ===\n'
+d="$TMP/g1"; fresh "$d"; mk="$d/docs/tasks/T-001/mockup.html"
+mkdir -p "$d/docs/tasks/T-001" "$d/docs/personas"
+echo '# Persona — Field technician' > "$d/docs/personas/field-technician.md"
+printf -- '- AC-1 next job one tap away\n- AC-2 offline state visible\n- AC-3 server rejects closed jobs\n' > "$d/docs/tasks/T-001/spec.md"
+expect pass "no mockups yet → PASS" bash "$d/harness/check-mockup.sh"
+cp assets/mockup-starter.html "$mk"
+expect pass "starter (persona + spec in place) passes" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+expect pass "workflow gate passes with a valid mockup" bash "$d/harness/validate-workflow.sh"
+# mock <label> <sed-expr> — each mutation of the starter must FAIL the checker.
+mock() {
+  edit_to() { sed -E "$1" assets/mockup-starter.html > "$mk"; }
+  edit_to "$2"; expect fail "rejects: $1" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+}
+mock "external script (CDN)"          's#<title>#<script src="https://cdn.example/x.js"></script><title>#'
+mock "protocol-relative stylesheet"   's#<title>#<link rel="stylesheet" href="//fonts.example/f.css"><title>#'
+mock "data-goto to no screen"         's#data-goto="signoff"#data-goto="sign-off"#'
+mock "unreachable screen"             's#data-goto="done"#data-goto="jobs"#'
+mock "duplicate screen id"            's#data-screen="done"#data-screen="job"#'
+mock "no screens"                     's#data-screen=#data-view=#g'
+mock "AC neither shown nor declared"  's#name="ac-non-visual" content="AC-3"#name="ac-non-visual" content=""#'
+mock "cites an AC the spec lacks"     's#data-ac="AC-1"#data-ac="AC-1 AC-9"#'
+mock "persona with no docs/personas/" 's#content="field-technician"#content="dispatcher"#'
+mock "no persona meta"                's#<meta name="persona"[^>]*>##'
+sed -E 's#<h1>Today#<!-- <a data-goto="ghost"></a> --><h1>Today#' assets/mockup-starter.html > "$mk"
+expect pass "markup in comments is ignored" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+sed -E 's#data-goto="done"#data-goto="jobs"#' assets/mockup-starter.html > "$mk"
+expect fail "workflow gate fails on a broken docs/tasks mockup" bash "$d/harness/validate-workflow.sh"
+cp assets/mockup-starter.html "$mk"; rm "$d/docs/tasks/T-001/spec.md"
+expect fail "rejects: mockup with no spec.md/design.md" bash "$d/harness/check-mockup.sh" "$d/docs/tasks/T-001"
+grep -qE '\{\{[A-Z0-9_]+\}\}' assets/mockup-starter.html && bad "starter has a {{…}} placeholder (fails project gates' section 0)" || ok "starter has no {{…}} placeholder"
+
+printf '\n=== G. Docs ↔ files ===\n'
 for p in $(grep -oE '(assets|scripts|references)/[A-Za-z0-9_./-]+' skills/init/SKILL.md README.md | cut -d: -f2 \
            | sed -E 's/[.,)]+$//' | sort -u); do
   case "$p" in *'*'*) continue ;; scripts/init.sh) continue ;; esac  # init.sh: generated in the target project
   [ -e "$p" ] && ok "referenced path exists: $p" || bad "SKILL/README reference missing: $p"
 done
 
-printf '\n=== G. Plugin packaging + version stamps ===\n'
+printf '\n=== H. Plugin packaging + version stamps ===\n'
 for j in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
   expect pass "$j is valid JSON" python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$j"
 done

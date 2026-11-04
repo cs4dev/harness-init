@@ -28,6 +28,16 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
     dependency/service. "Unsure" between solo and fast → fast; a full-track trigger
     is never a judgment call — it's on the list or it isn't.
   - If solo/fast work later hits a full-track trigger, promote; never demote mid-task.
+- **Optional `mockup` stage** (fast/full) — include it when the task adds or changes a
+  screen or flow a persona in `docs/personas/` sees or uses; log the trigger and the
+  persona slug(s) in `task.md`. No `docs/personas/` → never include it. Unsure → include
+  it (a skipped mockup is the expensive mistake). Once included, it stays.
+- **Human sign-off on `approval: human` stages** (the mockup): when
+  `harness/check-mockup.sh docs/tasks/<id>` exits 0, give the human the file path to
+  open (`open docs/tasks/<id>/mockup.html`) and ask: approve, or what to change. Record
+  the reply VERBATIM in the routing log. Change requests → append them to `task.md`
+  and re-run `ux-designer` (same stage, not a rollback). `dev` starts only on an
+  explicit approval — never on silence or your own reading of the mockup.
 - Advance to `next`, or roll back to a prior stage, based strictly on the artifact and the workflow's rollback `when` conditions.
 - Which specialist runs the next leg. After `dev`, spawn `review` AND `qa` in ONE
   message (parallel). `done` requires review=APPROVE and qa=PASS; either failure

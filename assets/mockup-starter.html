@@ -1,0 +1,147 @@
+<!doctype html>
+<!--
+  Mockup starter — copy to docs/tasks/<id>/mockup.html, then replace the example.
+  Conventions (checked by harness/check-mockup.sh; full text in roles/ux-designer.md):
+    persona meta    slugs of docs/personas/*.md this mockup was designed for
+    ac-non-visual   criteria with no UI, declared, never silently skipped
+    body data-device   phone | tablet | desktop: the persona's viewport
+    sections        one per screen, siblings; the FIRST is the start screen
+    goto attrs      navigation; every screen must be reachable from the start
+    ac attrs        on the element that demonstrates that acceptance criterion
+  Shared chrome (banners, tab bars) goes BEFORE the first screen.
+  Self-contained: inline CSS/JS/SVG only. No external URLs, no CDNs, no web fonts.
+  The review bar (screen list, "Show criteria") is built by the script below; it is
+  review chrome, not part of the design.
+-->
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="persona" content="field-technician">
+<meta name="ac-non-visual" content="AC-3">
+<title>Mockup — Close out a work order</title>
+<style>
+  :root {
+    --bg: #eef0f3; --surface: #ffffff; --ink: #14171c; --muted: #5b6370;
+    --line: #d5d9e0; --accent: #0b63ce; --accent-ink: #ffffff;
+    --warn-bg: #fff4d6; --warn-ink: #6b4a00; --ok: #1d7a46; --mark: #d4398f;
+    --frame-w: 390px; --frame-h: 780px; --tap: 48px;
+    font: 16px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root { --bg: #0f1115; --surface: #1a1d23; --ink: #e8eaee; --muted: #9aa2ae;
+            --line: #2d323b; --accent: #4c9bff; --accent-ink: #0b0d10;
+            --warn-bg: #3a2f10; --warn-ink: #f2d27a; --ok: #4cc584; }
+  }
+  body[data-device="tablet"]  { --frame-w: 820px;  --frame-h: 1100px; }
+  body[data-device="desktop"] { --frame-w: 1280px; --frame-h: 800px;  --tap: 36px; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); }
+
+  /* Device frame: the persona's viewport, centered. */
+  .device { width: min(100%, var(--frame-w)); min-height: var(--frame-h); margin: 56px auto 24px;
+            background: var(--surface); border: 1px solid var(--line); border-radius: 18px;
+            overflow: hidden; display: flex; flex-direction: column; }
+  body[data-device="desktop"] .device { border-radius: 8px; }
+  [data-screen] { display: none; flex: 1; padding: 16px; }
+  [data-screen].on { display: block; }
+
+  /* Building blocks: extend these, don't import a framework. */
+  h1 { font-size: 1.35rem; margin: 4px 0 12px; }
+  .muted { color: var(--muted); }
+  .banner { background: var(--warn-bg); color: var(--warn-ink); padding: 10px 16px; font-weight: 600; }
+  .card { border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin: 10px 0;
+          display: block; width: 100%; text-align: left; background: none; color: inherit; font: inherit; }
+  .btn { min-height: var(--tap); width: 100%; border: 0; border-radius: 12px; font: inherit;
+         font-weight: 700; background: var(--accent); color: var(--accent-ink); margin-top: 12px; cursor: pointer; }
+  .btn.ghost { background: none; color: var(--accent); border: 2px solid var(--accent); }
+  .back { min-height: var(--tap); background: none; border: 0; color: var(--accent); font: inherit; padding: 0; cursor: pointer; }
+  .pill { display: inline-block; padding: 2px 10px; border-radius: 99px; background: var(--line); font-size: .85rem; }
+  .sig { height: 140px; border: 2px dashed var(--line); border-radius: 12px; display: grid; place-items: center; }
+  [data-goto] { cursor: pointer; }
+
+  /* Review overlay (toggled by "Show criteria"). */
+  .review { position: fixed; inset: 0 0 auto 0; display: flex; gap: 8px; align-items: center;
+            padding: 8px 12px; background: var(--ink); color: var(--bg); font-size: .85rem; z-index: 9; flex-wrap: wrap; }
+  .review select, .review button { font: inherit; }
+  body.show-ac [data-ac] { outline: 2px dashed var(--mark); outline-offset: 2px; position: relative; }
+  body.show-ac [data-ac]::after { content: attr(data-ac); position: absolute; top: -10px; right: -6px;
+            background: var(--mark); color: #fff; font: 700 11px/1 system-ui; padding: 3px 5px; border-radius: 4px; }
+</style>
+</head>
+<body data-device="phone">
+<div class="device">
+
+  <!-- Shared chrome: before the first screen, visible on every screen. -->
+  <div class="banner" data-ac="AC-2">Offline: 1 update waiting to sync</div>
+
+  <section data-screen="jobs">
+    <h1>Today · 3 jobs</h1>
+    <button class="card" data-goto="job" data-ac="AC-1">
+      <strong>WO-2291 · Rooftop unit not cooling</strong><br>
+      <span class="muted">Harbor Plaza, Bldg C · 09:30</span> <span class="pill">Next</span>
+    </button>
+    <div class="card"><strong>WO-2294 · Annual PM, boiler 2</strong><br><span class="muted">Elm St Clinic · 13:00</span></div>
+    <div class="card"><strong>WO-2302 · Leak under sink</strong><br><span class="muted">14 Rowan Ct · 15:30</span></div>
+  </section>
+
+  <section data-screen="job">
+    <button class="back" data-goto="jobs">‹ Jobs</button>
+    <h1>WO-2291 · Rooftop unit not cooling</h1>
+    <p class="muted">Harbor Plaza, Bldg C · Gate code 4417 · Contact: Dana (front desk)</p>
+    <p>RTU-3 tripping on high pressure since Monday. Tenant reports 29°C on floor 4.</p>
+    <button class="btn" data-goto="signoff">Finish job</button>
+  </section>
+
+  <section data-screen="signoff">
+    <button class="back" data-goto="job">‹ WO-2291</button>
+    <h1>Customer sign-off</h1>
+    <div class="sig muted">Sign here</div>
+    <button class="btn" data-goto="done">Submit</button>
+  </section>
+
+  <section data-screen="done">
+    <h1 style="color: var(--ok)">Job closed</h1>
+    <p>Saved on this phone. It will sync when you're back online.</p>
+    <button class="btn ghost" data-goto="jobs">Back to today's jobs</button>
+  </section>
+
+</div>
+<script>
+// Mockup runtime: one screen at a time, hash routing (#screen-id deep links for review
+// comments), and a review bar. Uses dataset, never attribute strings, so the gate's
+// markup scan ignores it.
+(function () {
+  var screens = Array.prototype.slice.call(document.querySelectorAll('section'))
+    .filter(function (s) { return s.dataset.screen; });
+  function show(id) {
+    var hit = screens.filter(function (s) { return s.dataset.screen === id; })[0] || screens[0];
+    screens.forEach(function (s) { s.classList.toggle('on', s === hit); });
+    if (pick) pick.value = hit.dataset.screen;
+    window.scrollTo(0, 0);
+  }
+  document.addEventListener('click', function (e) {
+    var el = e.target;
+    while (el && !(el.dataset && el.dataset.goto)) el = el.parentElement;
+    if (el) { e.preventDefault(); location.hash = el.dataset.goto; }
+  });
+  window.addEventListener('hashchange', function () { show(location.hash.slice(1)); });
+
+  var bar = document.createElement('div'); bar.className = 'review';
+  var persona = document.querySelector('meta[name=persona]');
+  bar.appendChild(document.createTextNode('Mockup · ' + (persona ? persona.content : '?') + ' · '));
+  var pick = document.createElement('select');
+  screens.forEach(function (s) {
+    var o = document.createElement('option'); o.value = o.textContent = s.dataset.screen; pick.appendChild(o);
+  });
+  pick.onchange = function () { location.hash = pick.value; };
+  bar.appendChild(pick);
+  var t = document.createElement('button'); t.textContent = 'Show criteria';
+  t.onclick = function () { document.body.classList.toggle('show-ac'); };
+  bar.appendChild(t);
+  document.body.appendChild(bar);
+  show(location.hash.slice(1));
+})();
+</script>
+</body>
+</html>

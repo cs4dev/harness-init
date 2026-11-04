@@ -6,7 +6,8 @@ Scope is the VERBATIM assets only — they're the harness's generic machinery:
 `assets/workflow.yaml` → `harness/workflow/workflow.yaml`,
 `assets/roles/*.md` → `harness/workflow/roles/`,
 `assets/validate-workflow.sh` → `harness/validate-workflow.sh`,
-`assets/sync-agents.sh` / `assets/guard-artifact-write.sh` → `harness/`. Instantiated files
+`assets/sync-agents.sh` / `assets/guard-artifact-write.sh` / `assets/check-mockup.sh` → `harness/`,
+`assets/mockup-starter.html` → `harness/workflow/mockup-starter.html`. Instantiated files
 (SPEC, RULES, validate.sh, CLAUDE.md, CI, context.md, skills) are project-owned —
 never touch them; if their template changed, just tell the user what changed.
 
@@ -40,5 +41,10 @@ never touch them; if their template changed, just tell the user what changed.
    `bash <plugin root>/scripts/version.sh current`; if that exits non-zero, delete the
    stamp (an old one would be a wrong merge base) and say why. Report per file: unchanged / updated / merged /
    conflict-resolved / kept-local, and which mode ran (3-way or 2-way).
-8. Suggest a commit ("harness: upgrade workflow assets") — the user decides.
+8. New capability, project-owned side: if the upgrade brought in the `mockup` stage and
+   the project has a web/GUI client but no `docs/personas/`, say so and offer the
+   persona interview (SKILL.md Q5) → `docs/personas/<slug>.md` from
+   `assets/templates/docs/persona.md`, plus the context.md Personas section. Without
+   personas the stage never triggers — the upgrade is still complete.
+9. Suggest a commit ("harness: upgrade workflow assets") — the user decides.
 

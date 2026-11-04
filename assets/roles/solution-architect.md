@@ -18,7 +18,10 @@ halved full-track latency with no measured quality loss. Not the code itself.
 ## Produces
 - `docs/tasks/<id>/design.md`, containing:
   - Problem statement (one paragraph) + in-scope / explicit out-of-scope lists.
-  - Acceptance criteria — each binary (pass/fail), no "should/can/optional".
+  - Acceptance criteria — each binary (pass/fail), no "should/can/optional", numbered
+    `AC-1`, `AC-2`, … (mockup, tests, and QA cite them by id).
+  - Personas — when `docs/personas/` exists: the slug(s) whose screens or flows this
+    task changes, or "none" (the PM's mockup trigger reads this line).
   - Which files/modules change, and where new code lands (cite dev-map).
   - Data/type changes (shared schemas, repo interfaces).
   - The algorithm/behavior change, precise enough to implement without guessing.

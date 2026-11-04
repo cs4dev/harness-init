@@ -14,10 +14,15 @@ version: 3
 #   full — promote only on an explicit trigger: new endpoint/schema/migration,
 #          touches frozen SPEC scope or RULES, cross-package contract change,
 #          new external dependency/service. Adds an upfront design stage.
+# A trailing `?` marks an OPTIONAL stage: the PM includes it only on its trigger and
+# logs that trigger in task.md, same as the track choice. Skipped → route straight to
+# the next stage in the track.
+#   mockup? — trigger: the task adds or changes a screen or flow a persona
+#             (docs/personas/) sees or uses. No docs/personas/ → never included.
 tracks:
   solo: [dev, done]
-  fast: [spec, dev, review, qa, done]
-  full: [design, dev, review, qa, done]
+  fast: [spec, mockup?, dev, review, qa, done]
+  full: [design, mockup?, dev, review, qa, done]
 
 stages:
   # Full track only: ONE combined requirements+design artifact. (Splitting them
@@ -27,7 +32,7 @@ stages:
   - id: design
     agent: solution-architect
     produces: design.md
-    next: dev
+    next: dev                   # mockup, when the task includes it (track order)
     # If the request is too ambiguous for binary acceptance criteria, the
     # architect escalates to the PM, who clarifies with the user.
 
@@ -36,14 +41,28 @@ stages:
   - id: spec
     agent: requirements-analyst
     produces: spec.md
-    next: dev
+    next: dev                   # mockup, when the task includes it (track order)
     # No rollback target — if the request needs real design work, the analyst
     # escalates to the PM, who promotes the task to the full track.
+
+  # Optional (fast/full, on the persona trigger): an interactive static-HTML mockup of
+  # the task's screens, built AS the task's persona(s). The human approves it before
+  # any code exists — reworking UX in a mockup is cheap, in code it isn't.
+  - id: mockup
+    agent: ux-designer
+    reads: [design.md, docs/personas/]   # fast track: spec.md
+    produces: mockup.html
+    next: dev
+    approval: human             # PM shows it to the human; dev starts only on "approved"
+    rollback:
+      # fast track: rolls back to spec (via PM escalation).
+      to: design
+      when: an acceptance criterion cannot be shown, or the persona's journey exposes a gap
 
   - id: dev
     # solo track: executed by the main session, no sub-agent.
     agent: developer
-    reads: [design.md]          # fast track: spec.md
+    reads: [design.md, mockup.html]   # fast track: spec.md; mockup.html only if approved
     produces: dev-notes.md
     # FAN-OUT: review and qa run IN PARALLEL; done requires BOTH.
     # solo track: next is done (the full gate is the verdict).
@@ -55,7 +74,7 @@ stages:
 
   - id: review
     agent: code-reviewer
-    reads: [design.md, dev-notes.md]   # fast track: spec.md, dev-notes.md
+    reads: [design.md, dev-notes.md, mockup.html]   # fast track: spec.md; mockup if present
     produces: review.md
     next: done
     rollback:
@@ -64,7 +83,7 @@ stages:
 
   - id: qa
     agent: qa-tester
-    reads: [design.md, dev-notes.md]   # fast track: spec.md, dev-notes.md
+    reads: [design.md, dev-notes.md, mockup.html]   # fast track: spec.md; mockup if present
     produces: qa-report.md
     next: done
     rollback:
@@ -92,6 +111,10 @@ rules:
   - Track choice is logged in task.md with the trigger that justified it. When solo/fast
     work turns out to hit a full-track trigger, the PM promotes the task (no demotions
     mid-task).
+  - A stage with `approval: human` advances only on the human's explicit approval,
+    recorded verbatim in the routing log. Change requests re-run the same stage with the
+    feedback appended to task.md; they are not a rollback. The mockup must pass
+    `harness/check-mockup.sh` before the PM shows it.
   - The PM stamps start/end times per stage in the task.md routing log — tuning the
     workflow needs measurements, not vibes.
 
@@ -101,6 +124,7 @@ model_tiers:
   pm: light            # routing, state, logging
   requirements-analyst: medium
   solution-architect: heavy
+  ux-designer: heavy     # synthesizes screens + flow from spec and persona
   developer: heavy
   code-reviewer: medium  # judges against artifacts + static gate; QA backstops behavior
   qa-tester: heavy
@@ -116,6 +140,6 @@ tier_models:
 
 # Roles that write ONLY their artifact: their agent file gets a PreToolUse hook
 # blocking Write/Edit outside docs/tasks/. Judges judge; the developer owns code.
-artifact_only_roles: [requirements-analyst, solution-architect, code-reviewer, qa-tester]
+artifact_only_roles: [requirements-analyst, solution-architect, ux-designer, code-reviewer, qa-tester]
 
 artifacts_dir: docs/tasks

@@ -5,6 +5,9 @@ Implements the design. Writes code strictly within the spec/design — does not 
 
 ## Reads
 - `docs/tasks/<id>/design.md` (fast track: `spec.md`; solo track: `task.md` alone).
+- `docs/tasks/<id>/mockup.html` when the task had a mockup stage — the human-APPROVED
+  contract for screens, flow, copy, and states (not markup to paste). Build every screen
+  and state it shows; any deviation is recorded in `dev-notes.md` with the reason.
 - `harness/context.md` (digest: commands, frozen-rule one-liners, file map) — read first;
   open `RULES.md` / SPEC sections in full only where the task touches them.
 - `docs/dev-map.md` and the relevant Skills (`harness/skills/`).
