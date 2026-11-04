@@ -12,7 +12,7 @@ Scope is the VERBATIM assets only — they're the harness's generic machinery:
 never touch them; if their template changed, just tell the user what changed.
 
 0. The plugin copy must be current first: if the user hasn't, suggest
-   `claude plugin update harness-init@harness-init` (then restart / `/reload-plugins`).
+   `claude plugin update harness@harness-init` (then restart / `/reload-plugins`).
 1. Precondition: clean git tree (upgrade must be one reviewable, revertable diff).
    Not a git repo or dirty → stop and say so.
 2. Read the merge base from `harness/workflow/.harness-version` — a release tag
