@@ -9,22 +9,22 @@ description: >
   split, and a workflow-sync gate. GUI projects also get personas and an
   optional, human-approved interactive static-HTML mockup stage built as the
   persona (e.g. a field technician on a work-order app).
-  Stack resolution: invocation argument (/harness-init:init web
+  Stack resolution: invocation argument (/harness:init web
   app, Fastify + React) → scan of an existing repo (detect, confirm) → for empty
   repos, RECOMMEND 2-3 stacks for the human to pick. Commands, gate checks, and
   SOPs derive from that, then the scope/correctness/acceptance interview. Use
   when the user says "harness this project", "set up a harness", "harness-first",
-  or invokes /harness-init:init [project type + stack]. Also upgrades an already-
+  or invokes /harness:init [project type + stack]. Also upgrades an already-
   harnessed project to the skill's current workflow/role assets: "upgrade the
-  harness", /harness-init:init upgrade.
+  harness", /harness:init upgrade.
 ---
 
 # harness-init — scaffold a Level-3 harness
 
 ## Invocation
-`/harness-init:init [project type + tech stack]` — the argument is free text from the
-human, e.g. `/harness-init:init web app, pnpm monorepo + Fastify + tRPC + React 19` or
-`/harness-init:init CLI tool in Go`. It answers interview Q0 directly: derive commands,
+`/harness:init [project type + tech stack]` — the argument is free text from the
+human, e.g. `/harness:init web app, pnpm monorepo + Fastify + tRPC + React 19` or
+`/harness:init CLI tool in Go`. It answers interview Q0 directly: derive commands,
 B2 shape, gate greps, and SOPs from it (confirm the derivations in the interview
 summary).
 
@@ -41,7 +41,7 @@ Q0 resolution order (first source that answers wins):
 The human always confirms the stack before anything frozen is generated — detect or
 recommend, never silently decide.
 
-`/harness-init:init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
+`/harness:init upgrade` — project already harnessed (`harness/workflow/workflow.yaml`
 exists): skip the procedure below; read `${CLAUDE_PLUGIN_ROOT}/references/upgrade.md`
 and follow it.
 

@@ -178,12 +178,12 @@ for j in .claude-plugin/plugin.json .claude-plugin/marketplace.json; do
 done
 ver=$(python3 -c 'import json; print(json.load(open(".claude-plugin/plugin.json")).get("version",""))' 2>/dev/null)
 printf '%s' "$ver" | grep -qE '^[0-9]+\.[0-9]+\.[0-9]+$' && ok "plugin.json version is semver ($ver)" || bad "plugin.json version not semver: '$ver'"
-python3 - <<'PY' && ok "marketplace lists harness-init at ./, no duplicate version" || bad "marketplace.json entry wrong (source ./, no version — plugin.json owns it)"
+python3 - <<'PY' && ok "marketplace lists harness at ./, no duplicate version" || bad "marketplace.json entry wrong (source ./, no version — plugin.json owns it)"
 import json; m = json.load(open(".claude-plugin/marketplace.json"))
-e = [p for p in m["plugins"] if p["name"] == "harness-init"]
+e = [p for p in m["plugins"] if p["name"] == "harness"]
 assert len(e) == 1 and e[0]["source"] in ("./", ".") and "version" not in e[0]
 PY
-[ -f skills/init/SKILL.md ] && grep -q '^name: init$' skills/init/SKILL.md && ok "skill at skills/init (→ /harness-init:init)" || bad "skills/init/SKILL.md missing or misnamed"
+[ -f skills/init/SKILL.md ] && grep -q '^name: init$' skills/init/SKILL.md && ok "skill at skills/init (→ /harness:init)" || bad "skills/init/SKILL.md missing or misnamed"
 [ ! -e SKILL.md ] && ok "no root SKILL.md (would shadow the skills/ layout)" || bad "root SKILL.md present"
 if command -v claude >/dev/null 2>&1; then
   expect pass "claude plugin validate --strict ." claude plugin validate --strict .
@@ -201,7 +201,7 @@ d="$TMP/g1"; fresh "$d"
 if [ -z "$(git status --porcelain assets)" ]; then
   [ "$(cat "$d/harness/workflow/.harness-version" 2>/dev/null)" = "$head" ] && ok "clone install stamps HEAD SHA" || bad "clone stamp: $(cat "$d/harness/workflow/.harness-version" 2>/dev/null)"
 else ok "assets/ dirty locally — SHA stamp check runs on a clean tree"; fi
-cache="$TMP/cache/harness-init/harness-init/$ver"; mkdir -p "$cache"
+cache="$TMP/cache/cs4dev/harness/$ver"; mkdir -p "$cache"
 git archive HEAD | tar -x -C "$cache"
 cp -R assets scripts .claude-plugin "$cache"/   # working-tree copy, like an install would be
 d="$TMP/g2"; mkdir -p "$d"; bash "$cache/scripts/scaffold.sh" "$d" demo >/dev/null 2>&1

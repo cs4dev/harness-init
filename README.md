@@ -15,21 +15,33 @@ durable asset — it lives in git, not in chat memory.
 
 ## Install
 
-harness-init is a Claude Code plugin and its own marketplace. In a session
+This repo is a Claude Code marketplace (`cs4dev`) that ships one plugin, `harness`. In a session
 (Claude Code 2.1.275+):
 
 ```
-/plugin install harness-init --marketplace cs4dev/harness-init
+/plugin install harness --marketplace cs4dev/harness-init
 ```
 
 Older Claude Code, or from the shell:
 
 ```sh
 claude plugin marketplace add cs4dev/harness-init
-claude plugin install harness-init@harness-init     # --scope project to share via the repo
+claude plugin install harness@cs4dev     # --scope project to share via the repo
 ```
 
-Then restart Claude Code or run `/reload-plugins`. The skill is `/harness-init:init`.
+Then restart Claude Code or run `/reload-plugins`. The skill is `/harness:init`.
+
+**Upgrading from 1.x (`/harness-init:init`):** in 2.0.0 the plugin was renamed from
+`harness-init` to `harness`, and the marketplace from `harness-init` to `cs4dev`. Remove
+both old names, then install as above:
+
+```sh
+claude plugin uninstall harness-init@harness-init
+claude plugin marketplace remove harness-init
+```
+
+Already-scaffolded projects are unaffected: their `v1.x` stamps still resolve as
+upgrade's merge base.
 
 **Upgrading from the old git-clone install:** remove the clone first. Otherwise it loads
 as a second copy of the same plugin:
@@ -44,9 +56,9 @@ upgrade's merge base (fetched from GitHub).
 ## Setup — one invocation per project
 
 ```
-/harness-init:init web app, pnpm monorepo + Fastify + tRPC + React 19
-/harness-init:init CLI tool in Go
-/harness-init:init                 # existing repo: it scans and confirms the stack
+/harness:init web app, pnpm monorepo + Fastify + tRPC + React 19
+/harness:init CLI tool in Go
+/harness:init                 # existing repo: it scans and confirms the stack
 ```
 
 Stack resolution: invocation argument → repo scan (detect, confirm) → for empty repos,
@@ -150,15 +162,15 @@ Scaffolds are one-shot copies, so plugin improvements don't reach already-harnes
 projects on their own. Update the plugin, then run upgrade inside the project:
 
 ```sh
-claude plugin marketplace update harness-init
-claude plugin update harness-init@harness-init     # then restart, or /reload-plugins
+claude plugin marketplace update cs4dev
+claude plugin update harness@cs4dev     # then restart, or /reload-plugins
 ```
 ```
-/harness-init:init upgrade
+/harness:init upgrade
 ```
 
 To get new releases automatically, turn on auto-update in `/plugin` → Marketplaces →
-harness-init → Enable auto-update. It is off by default for third-party marketplaces.
+cs4dev → Enable auto-update. It is off by default for third-party marketplaces.
 
 It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
 `validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` scripts and the
