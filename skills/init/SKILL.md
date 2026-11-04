@@ -5,10 +5,12 @@ description: >
   any project: frozen SPEC, RULES, skills/SOPs, master validation gate,
   three-track multi-agent workflow (solo: main session + gate, for trivial
   changes; fast — the DEFAULT: spec→dev→review∥qa; full — explicit triggers
-  only: design→dev→review∥qa) with role contracts, a one-boot-per-task gate
-  split, and a workflow-sync gate. GUI projects also get personas and an
-  optional, human-approved interactive static-HTML mockup stage built as the
-  persona (e.g. a field technician on a work-order app).
+  only: design→dev→review∥qa; UI tasks prepend persona→mockup) with role contracts, a one-boot-per-task gate
+  split, and a workflow-sync gate. GUI projects are mockup-first: personas,
+  then an interactive static-HTML mockup built as the persona (e.g. a field
+  technician on a work-order app) that the human iterates on and approves
+  before anything real exists — at init before SPEC is frozen or any stack is
+  installed, and on every UI task before spec/design/code.
   Stack resolution: invocation argument (/harness:init web
   app, Fastify + React) → scan of an existing repo (detect, confirm) → for empty
   repos, RECOMMEND 2-3 stacks for the human to pick. Commands, gate checks, and
@@ -64,8 +66,10 @@ file's directory and not to the user's project.
   workflow gate. `assets/guard-artifact-write.sh` — that PreToolUse hook: judge roles
   may write only under `docs/tasks/`. Both VERBATIM.
 - `assets/check-mockup.sh` — the mockup gate (self-contained, persona exists, every
-  screen reachable, every `AC-n` shown or declared non-visual); run by the ux-designer
-  and, over all `docs/tasks/*/mockup.html`, inside the workflow gate.
+  screen reachable; once the spec exists, every `AC-n` tagged `[screen: <id>]` or
+  `[non-visual]` and every screen covered); run by the ux-designer and the
+  analyst/architect, and over `docs/mockups/*.html` + `docs/tasks/*/mockup.html` inside
+  the workflow gate.
   `assets/mockup-starter.html` — the runtime + conventions every mockup is copied from.
   Both VERBATIM; shipped to every project (the stage simply never triggers without
   `docs/personas/`).
@@ -93,6 +97,7 @@ Keep it to ~2 rounds — each round trip is the human's wall-clock:
 - **Round 2:** Q1, Q2, Q4 and Q5 together in ONE AskUserQuestion call (it takes up to 4
   questions); omit Q4 when the stack makes the commands obvious, Q5 when there's no
   GUI client.
+- **GUI client → step 2b before sign-off** (personas → v1 mockup → approval).
 - **Sign-off:** ONE summary message — drafted Q3 acceptance criteria + derived
   commands/B2 shape + rules — approved or corrected in one reply.
 
@@ -107,7 +112,9 @@ Required answers before writing anything frozen:
 2. **Correctness core** — what data must never be corrupted? Who is the authority on
    what (server vs client)? What logic must exist exactly once, frozen where?
    (feeds SPEC §4 + the 2–4 domain RULES)
-3. **Acceptance** — 10–15 binary criteria for v1 (draft them, get sign-off; feeds SPEC §8)
+3. **Acceptance** — 10–15 binary criteria for v1 (draft them, get sign-off; feeds SPEC §8).
+   GUI client: drafted only after the v1 mockup is approved (2b), each tagged with
+   its screens.
 4. **Commands** — typecheck/lint/test/build/run if not detectable from the repo or
    derivable from the Q0 stack answer (then just confirm them in the summary).
    Adapt B2 to the project type from Q0: server → boot + liveness probe; CLI → run the
@@ -119,16 +126,42 @@ Required answers before writing anything frozen:
    *field technician* (phone, one hand, gloves, patchy signal, sunlight),
    *dispatcher* (desktop, many jobs at once, assigns/reschedules),
    *site contact* (opens an emailed link, approves completed work, rarely visits).
-   The sign-off summary then lists each persona's device, context-of-use, top tasks
-   and must-never-happen lines for correction. (feeds `docs/personas/<slug>.md`, the
-   context.md Personas section, and the optional `mockup` stage)
+   Step 2b then writes each persona's device, context-of-use, top tasks and
+   must-never-happen lines for correction. (feeds `docs/personas/<slug>.md`, the
+   context.md Personas section, the v1 mockup, and every UI task's `mockup` stage)
+
+### 2b. GUI client only — mockup before anything real
+The human shapes the app in static HTML first; nothing that is expensive to change
+(stack scaffolder, dependency installs, walking skeleton, frozen SPEC/RULES) exists
+until they approve it. A Rust/Tauri/React skeleton built before anyone saw a screen is
+the failure this step prevents.
+1. `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh" <repo> "<project name>"` now — it
+   only copies harness machinery (workflow, roles, check-mockup.sh, mockup starter),
+   no stack. Tell the human to restart Claude Code before the first task (step 4).
+2. **Personas (step 0):** write `docs/personas/<slug>.md` per Q5 persona from
+   `templates/docs/persona.md` (kebab-case slug — mockups and tasks cite it); one
+   message lists each persona's device, context of use, top tasks and must-never-happen
+   lines for correction.
+3. **v1 mockup:** follow `roles/ux-designer.md` yourself (no sub-agents yet) and build
+   `docs/mockups/v1.html` from `harness/workflow/mockup-starter.html`, AS the personas,
+   covering the Q1 v1 scope — every screen, flow, and non-happy state the v1 has.
+   `bash harness/check-mockup.sh docs/mockups/v1.html` must exit 0 (no SPEC yet, so
+   it checks structure and flow only).
+4. **Iterate:** give the human the path (`open docs/mockups/v1.html`) and a one-line-
+   per-screen list; ask approve, or what to change. Revise and re-check until they say
+   approved — explicitly, never on silence. Stay in static HTML the whole time: if the
+   human asks for real code, say the mockup is approved first.
+5. Then the sign-off above: the Q3 acceptance criteria are drafted FROM the approved
+   mockup, each tagged `[screen: <id>, …]` or `[non-visual]`, every screen covered.
+   SPEC §8 records the approval verbatim with its date.
 
 ### 3. Generate — maximize parallelism, minimize gate boots
 Only `validate.sh` depends on anything (it needs the skeleton/commands to exist);
 every other file is independent once the sign-off is in. So:
 
 **3a. First message after sign-off — all of these as parallel tool calls:**
-- `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh" <repo> "<project name>"` — workflow.yaml,
+- `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh" <repo> "<project name>"` (GUI client:
+  already ran in 2b — skip) — workflow.yaml,
   roles/, validate-workflow.sh (repo root = its parent's parent), task-board,
   resume.md, docs/tasks/, sync-agents.sh + guard (and runs it: `.claude/agents/`),
   the `.harness-version` stamp (skipped and reported when no valid stamp exists, e.g.
@@ -156,9 +189,8 @@ every other file is independent once the sign-off is in. So:
      full SPEC/RULES only where the task touches them. Regenerate it whenever
      commands/rules/layout change.
   5. `docs/dev-map.md` from `templates/docs/dev-map.md`.
-  5b. GUI client only: `docs/personas/<slug>.md` per signed-off persona, from
-     `templates/docs/persona.md` (kebab-case slug — tasks and mockups cite it). No
-     GUI → no `docs/personas/`, and delete context.md's Personas section.
+  5b. Personas were written in 2b (GUI client). No GUI → no `docs/personas/`, no
+     `docs/mockups/`, and delete context.md's Personas section.
   6. `scripts/init.sh` — CONDITIONAL: only when the Q0 stack has prerequisites to
      materialize (service containers, .env, migrations, codegen). One idempotent
      script: services up → `.env` from `.env.example` if absent → deps install →
@@ -210,10 +242,12 @@ every other file is independent once the sign-off is in. So:
   re-run `harness/sync-agents.sh`; the gate fails until you do); each reads
   `harness/context.md` first plus its contract's inputs and writes its artifact.
   Downstream NEVER edits upstream — blockers roll back via the PM.
-- GUI projects: a task that changes a screen or flow a persona uses gets the optional
-  `mockup` stage — `ux-designer` builds a clickable static-HTML mockup AS the persona;
-  the PM opens it for the human, and dev starts only on their explicit approval
-  (feedback re-runs the designer). QA later walks the real app through it as the persona.
+- GUI projects, every task that adds or changes a screen or flow: **persona first**
+  (the PM names the persona(s) in task.md — step 0), **then the mockup** (`ux-designer`
+  builds a clickable static-HTML mockup AS the persona; the PM opens it for the human;
+  feedback re-runs the designer), **then spec/design** — only after the human's
+  explicit approval, with every criterion tagged with the screens that show it. QA
+  later walks the real app through the mockup as the persona.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
   requires both verdicts; either failure rolls back to dev and both re-run.
 - ONE boot per task: dev runs `validate.sh --no-boot`, reviewer `--static`, QA the

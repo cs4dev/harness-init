@@ -46,6 +46,12 @@ never touch them; if their template changed, just tell the user what changed.
    persona interview (SKILL.md Q5) → `docs/personas/<slug>.md` from
    `assets/templates/docs/persona.md`, plus the context.md Personas section. Without
    personas the stage never triggers — the upgrade is still complete.
+   Mockup-first (2.1.0) moved `mockup` before spec/design. Project-owned files that
+   describe the old order are now stale — the task-board's Tracks lines, CLAUDE.md's GUI
+   line, context.md's Personas line: show the user the
+   new wording and offer to update them. Existing mockups keep passing: ones that tag
+   criteria with `data-ac` are checked the old way; tasks already past their mockup
+   stage finish on the order they started with.
 9. Suggest a commit ("harness: upgrade workflow assets") — the user decides. If step 7
    added or renamed any `.claude/agents/` file, tell the user to restart Claude Code
    (`claude --continue`) first: agents load only at session start.

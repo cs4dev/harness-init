@@ -4,7 +4,11 @@
 
 **Track:** <solo|fast|full> — <the mechanical trigger that justified it>
 
-**Mockup:** <no — no persona-facing change | yes — personas: <slug>… — <the screen/flow it changes>>
+**UI change:** <no — no screen or flow changes | yes — <the screen/flow it changes>>
+
+**Personas (step 0 — named before any stage runs; UI change only):** <slug>, …
+
+**Mockup:** <no | yes — first stage; nothing else starts until the human approves it>
 
 **Workflow:** `harness/workflow/workflow.yaml` · **Artifacts:** this folder.
 

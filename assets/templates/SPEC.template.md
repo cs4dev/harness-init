@@ -27,6 +27,7 @@ Languages, frameworks, datastores. (Build tooling stays OUT of SPEC — it can c
 
 ## §8 Acceptance criteria
 Numbered, binary (pass/fail), each mappable to a test. 10–15 for a v1. The master gate (`harness/validate.sh`) is the final criterion.
+GUI projects: drafted AFTER the human approved `docs/mockups/v1.html` (record the approval, verbatim and dated, here). Each criterion's line ends with the screens that show it — `AC-<n> … [screen: <id>]` — or `[non-visual]`; every screen of the mockup is covered (`harness/check-mockup.sh` enforces both).
 
 ## §9 Glossary
 Terms a new agent would misread without definitions.

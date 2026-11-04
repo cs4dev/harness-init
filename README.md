@@ -75,6 +75,7 @@ harness/workflow/        three-track relay + 7 role contracts + the mockup start
 .claude/agents/          one sub-agent per role, rendered from workflow.yaml: model per
                          tier; reviewer/QA/analyst/architect/designer write only docs/tasks/
 docs/personas/           GUI projects only: who uses the app (device, context, top tasks)
+docs/mockups/v1.html     GUI projects only: the v1 mockup you approved before SPEC froze
 docs/task-board.md       append-only, one task active at a time
 .github/workflows/       CI materializes prerequisites, then runs the same gate
 ```
@@ -108,25 +109,35 @@ edits to frozen SPEC/RULES, a cross-package contract, or a new external dependen
 Adds a `design` stage — the solution-architect writes binary acceptance criteria and the
 design in one artifact before any code exists.
 
-### Feature a persona will see — optional `mockup` stage
+### Feature a persona will see — persona → mockup first
 
 > T-009: technicians capture the customer's signature before closing a job
 
-On a GUI project, the interview also captures **personas** (`docs/personas/*.md`), e.g. a
+GUI projects are **mockup-first**: you shape the app in static HTML before anything
+expensive to change exists.
+
+**At init.** The interview captures **personas** (`docs/personas/*.md`), e.g. a
 work-order app's *field technician* (phone, gloves, patchy signal), *dispatcher*
-(desktop, many jobs at once) and *site contact* (emailed link, approves work). A task
-that changes a screen or flow one of them uses gets `mockup` between spec/design and
-dev:
+(desktop, many jobs at once) and *site contact* (emailed link, approves work). Then it
+builds `docs/mockups/v1.html` as those personas, and you iterate on it until you
+approve it. Only then does it draft the acceptance criteria, freeze SPEC, and run the
+stack scaffolder and installs.
 
-`spec → mockup → (you approve) → dev → review ∥ qa`
+**On every task that adds or changes a screen or flow:**
 
-The `ux-designer` builds `docs/tasks/T-009/mockup.html` **as the persona**: one
+`persona → mockup → (you approve) → spec → dev → review ∥ qa`
+
+The PM names the persona(s) in `task.md` first. The `ux-designer` then builds
+`docs/tasks/T-009/mockup.html` **as the persona**, from your request alone: one
 self-contained static HTML file, clickable screen to screen at the persona's viewport,
 with real copy and the offline/error/empty states they'll hit. `check-mockup.sh` fails
-it if it loads anything external, has an unreachable screen, or leaves an acceptance
-criterion neither shown (`data-ac="AC-n"`) nor declared non-visual. You open it,
-click through, and approve or send changes. Dev doesn't start without your yes. Dev then
-builds to it, and QA walks the real app through the same screens as the persona.
+it if it loads anything external or has an unreachable screen. You open it, click
+through, and approve or send changes. No spec, design or code exists until you say yes.
+
+The spec written after approval tags every acceptance criterion with the screens that
+show it (`AC-3 … [screen: signoff]`) or `[non-visual]`. `check-mockup.sh` fails the
+spec if a criterion is untagged or any approved screen is left uncovered. Dev builds to
+the mockup, and QA walks the real app through the same screens as the persona.
 
 ### Bug fix — usually `fast`, sometimes `solo`
 
