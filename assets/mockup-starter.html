@@ -15,10 +15,10 @@
   Self-contained: inline CSS/JS/SVG only. No external URLs, no CDNs, no web fonts.
 
   Review layer (built by the script below; review chrome, not part of the design):
-    bottom bar      ⌂ Screens · persona switch · ‹ n/N title › · ⓘ Info · ⌨ Shortcuts · ✕
+    bottom bar      ⌂ Screens · persona switch · ‹ n/N title › · ⓘ Info · ⌨ Shortcuts · ✕  (hidden: a small "⌃ Show bar" pill restores it)
     screen header   what this screen is and where it sits in the flow (key i)
     shortcuts card  shown once on first visit (key ?)
-    keys            0 screens panel · ← → prev/next · 1–9 screen N · i header · . hide bar
+    keys            0 screens panel · ← → prev/next · 1–9 screen N · i header · . hide bar · h hide all
                     · P / Shift+P next/previous persona file · ? shortcuts · Esc close
     unwired clicks  flash what IS clickable
   Optional:
@@ -179,6 +179,7 @@
     { keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9'], shown: '1–9', label: 'Screen N' },
     { keys: ['i'], shown: 'i', label: 'Show or hide the screen header' },
     { keys: ['.'], shown: '.', label: 'Hide or show this bar' },
+    { keys: ['h'], shown: 'h', label: 'Hide or show everything (bar, header, help)' },
     { keys: ['p', 'P'], shown: 'P ⇧P', label: 'Next / previous persona file', files: true },
     { keys: ['?'], shown: '?', label: 'Show or hide these shortcuts' },
     { keys: ['Escape'], shown: 'Esc', label: 'Close the panel or shortcuts' }
@@ -197,7 +198,8 @@
       '.mk-bar .pos{color:rgb(255 255 255/.6);font-variant-numeric:tabular-nums;padding:0 4px;white-space:nowrap;max-width:260px;overflow:hidden;text-overflow:ellipsis}',
       '.mk-bar .pos b{color:#fff;font-weight:600}',
       '.mk-bar .sep{width:1px;height:20px;background:rgb(255 255 255/.16);flex-shrink:0}',
-      '.mk-pill{position:fixed;left:14px;bottom:14px;z-index:1000;all:unset;cursor:pointer;width:40px;height:40px;border-radius:12px;background:var(--mk-accent,#2563eb);color:#fff;display:none;place-items:center;font:700 15px system-ui,sans-serif;box-shadow:0 8px 24px rgb(0 0 0/.25)}',
+      '.mk-pill{all:unset;position:fixed;left:50%;bottom:14px;transform:translateX(-50%);z-index:1000;cursor:pointer;display:none;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;background:#111;color:rgb(255 255 255/.78);border:1px solid rgb(255 255 255/.14);box-shadow:0 10px 30px rgb(0 0 0/.28);font:500 12.5px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;opacity:.7;transition:opacity .15s}',
+      '.mk-pill:hover,.mk-pill:focus-visible{opacity:1;color:#fff}',
       'body.mk-has-bar{padding-bottom:72px}',
       'body.mk-flash [data-goto],body.mk-flash [data-interactive]{outline:2px solid var(--mk-accent,#2563eb) !important;outline-offset:2px}',
       '.mk-help{position:fixed;left:50%;bottom:70px;transform:translateX(-50%);z-index:1001;background:#111;color:#fff;border:1px solid rgb(255 255 255/.14);border-radius:12px;padding:12px 14px;font:500 13px system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;box-shadow:0 10px 30px rgb(0 0 0/.3);display:grid;grid-template-columns:max-content 1fr;gap:6px 14px;white-space:nowrap}',
@@ -245,10 +247,10 @@
       '<button data-nav="help" title="Keyboard shortcuts (?)">⌨ Shortcuts</button>' +
       '<button data-nav="hide" title="Hide bar (.)">✕</button>');
     document.body.appendChild(bar);
-    var pill = make('button', 'mk-pill', 'M'); pill.title = 'Show the review bar (.)'; document.body.appendChild(pill);
+    var pill = make('button', 'mk-pill', '<svg width="12" height="12" viewBox="0 0 12 12" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 7.5 6 4.5l3 3"/></svg>Show bar'); pill.title = 'Show the review bar (.)'; document.body.appendChild(pill);
 
     function setHead(h) { head.hidden = h; store('mk-head-hidden', h ? '1' : ''); }
-    function setBar(h) { bar.style.display = h ? 'none' : 'flex'; pill.style.display = h ? 'grid' : 'none';
+    function setBar(h) { bar.style.display = h ? 'none' : 'flex'; pill.style.display = h ? 'flex' : 'none';
       document.body.classList.toggle('mk-has-bar', !h); store('mk-bar-hidden', h ? '1' : ''); }
     function setHelp(h) { help.hidden = h; if (h) store('mk-help-seen', '1'); }
     function renderHelp() {
@@ -300,7 +302,12 @@
     renderHelp();
     return { panel: panel, refresh: refresh, renderHelp: renderHelp, togglePanel: togglePanel,
              toggleHead: function () { setHead(!head.hidden); }, toggleBar: function () { setBar(bar.style.display !== 'none'); },
-             toggleHelp: function () { setHelp(!help.hidden); }, closeAll: function () { panel.hidden = true; if (!help.hidden) setHelp(true); } };
+             toggleHelp: function () { setHelp(!help.hidden); },
+             // h: any review UI visible -> hide it all (pill too, clean screen); else bring back bar + header
+             toggleAll: function () {
+               var on = bar.style.display !== 'none' || !head.hidden || !help.hidden || !panel.hidden || pill.style.display !== 'none';
+               if (on) { panel.hidden = true; setHelp(true); setHead(true); setBar(true); pill.style.display = 'none'; }
+               else { setBar(false); setHead(false); } }, closeAll: function () { panel.hidden = true; if (!help.hidden) setHelp(true); } };
   }
 
   document.addEventListener('keydown', function (e) {
@@ -317,6 +324,7 @@
     else if (k === '0') ui.togglePanel();
     else if (k === 'i') ui.toggleHead();
     else if (k === '.') ui.toggleBar();
+    else if (k === 'h') ui.toggleAll();
     else if (k === '?') ui.toggleHelp();
     else if (k === 'Escape') ui.closeAll();
     else return;
