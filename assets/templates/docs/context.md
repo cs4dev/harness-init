@@ -5,6 +5,7 @@
 
 ## Commands
 build `{{BUILD_CMD}}` · test `{{TEST_CMD}}` · run `{{RUN_CMD}}` · gate `bash harness/validate.sh` (`--no-boot` dev, `--static` review, full = QA/solo)
+Run each command exactly as written, from the repo root, one per call: no `./`, no `cd … &&`, no pipes or `&&` chains. `.claude/settings.json` pre-approves these exact forms; anything else prompts for permission.
 
 ## Frozen rules (one-liners — full text in RULES.md)
 (R1 done = gate exits 0; R2 SPEC is law; + the domain rules, one line each)

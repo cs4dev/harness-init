@@ -53,6 +53,10 @@ never touch them; if their template changed, just tell the user what changed.
    new wording and offer to update them. Existing mockups keep passing: ones that tag
    criteria with `data-ac` are checked the old way; tasks already past their mockup
    stage finish on the order they started with.
+   Pre-approved commands (2.3.1): if the project's `.claude/settings.json` lacks the
+   rules in `assets/templates/settings.json.template`, show the missing ones plus one
+   rule per command in context.md, and offer to merge them into `permissions.allow`
+   (SKILL.md step 3a item 9). Never add rules without the user's yes.
 9. Suggest a commit ("harness: upgrade workflow assets") — the user decides. If step 7
    added or renamed any `.claude/agents/` file, tell the user to restart Claude Code
    (`claude --continue`) first: agents load only at session start.

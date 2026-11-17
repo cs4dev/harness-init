@@ -28,6 +28,11 @@
     <meta name="mockup-files" content="All screens=v1.html; Field technician=v1-field-technician.html">
                     sibling mockups (written by split-mockup.sh) for the persona switch; the
                     current screen and ?query carry over when switching
+    <meta name="mockup-version" content="1.1">   the mockup's version, shown as a chip in the
+                    screen header. Omit it on v1. A patch (roles/ux-designer.md, "Patching")
+                    bumps it AFTER the human approves, and tags what it touched
+                    data-changed="1.1": while the version matches, the review layer outlines
+                    those elements (dashed) and the header counts them; later bumps retire them.
     --mk-accent     CSS variable: the layer's accent colour (set it to the brand's)
     mockup.addShortcut(keys, label, fn[, shown])   project keys, listed in the card;
                     they override a default key. ?nobar hides the layer; headless
@@ -158,6 +163,7 @@
     var j = ((fi < 0 ? 0 : fi) + d + files.length) % files.length;
     location.href = files[j][1] + location.search + location.hash;
   }
+  var verMeta = document.querySelector('meta[name="mockup-version"]'), ver = verMeta ? verMeta.content : '';
   var personaMeta = document.querySelector('meta[name="persona"]');
   var who = fi >= 0 ? files[fi][0] : (personaMeta ? personaMeta.content : '?');
 
@@ -227,11 +233,14 @@
       '.mk-card small{color:#5f6470}',
       '.mk-card .d{color:#5f6470;font-size:12.5px;margin-top:4px;flex:1}',
       '.mk-card .o{align-self:flex-end;margin-top:8px;padding:4px 10px;border-radius:999px;background:var(--mk-accent,#2563eb);color:#fff;font-size:12px;font-weight:600}',
+      'body.mk-has-bar [data-changed].mk-new{outline:2px dashed var(--mk-accent,#2563eb);outline-offset:3px}',
+      '.mk-head .chip.new{border-color:transparent;background:var(--mk-accent,#2563eb);color:#fff;font-weight:600}',
       '.mk-ui[hidden]{display:none !important}'
     ].join('\n');
     document.head.appendChild(css);
     function make(tag, cls, html) { var e = document.createElement(tag); e.className = 'mk-ui ' + cls; if (html) e.innerHTML = html; return e; }
 
+    if (ver) Array.prototype.forEach.call(document.querySelectorAll('[data-changed="' + ver + '"]'), function (el) { el.classList.add('mk-new'); });
     var head = make('header', 'mk-head');
     document.body.insertBefore(head, document.body.firstChild);
     var panel = make('div', 'mk-panel'); panel.hidden = true; document.body.appendChild(panel);
@@ -278,8 +287,10 @@
       bar.querySelector('[data-pos]').innerHTML = '<b>' + (j + 1) + '/' + ids.length + '</b> ' + esc(m[0]);
       bar.querySelector('[data-nav=prev]').disabled = j <= 0;
       bar.querySelector('[data-nav=next]').disabled = j >= ids.length - 1;
+      var fresh = ver ? screens[j].querySelectorAll('[data-changed="' + ver + '"]').length : 0;
       head.innerHTML = '<div class="l"><span class="chip brand">' + esc(document.title.replace(/^Mockup\s*[—-]\s*/, '')) +
-        '</span><span class="chip">' + esc(who) + '</span><span class="n">Screen ' + (j + 1) + ' of ' + ids.length + ' · ' + esc(c) + '</span></div>' +
+        '</span>' + (ver ? '<span class="chip">v' + esc(ver) + '</span>' : '') +
+        (fresh ? '<span class="chip new">' + fresh + ' changed in v' + esc(ver) + '</span>' : '') + '<span class="chip">' + esc(who) + '</span><span class="n">Screen ' + (j + 1) + ' of ' + ids.length + ' · ' + esc(c) + '</span></div>' +
         '<div class="c"><b>' + esc(m[0]) + '</b><span>' + esc(m[1]) + '</span></div><button class="x" title="Hide header (i)">✕</button>';
     }
 

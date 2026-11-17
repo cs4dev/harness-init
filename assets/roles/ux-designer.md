@@ -54,6 +54,27 @@ At init the main session follows this contract to build the v1 mockup
 - In the report: one line per screen (id — what the persona does there), so the human
   and the next stage can review it without opening the file.
 
+## Patching an approved mockup (v1 → v1.1)
+A small edit to a mockup the human already approved (a button, a field, copy, one state
+on an EXISTING screen) is a patch, not a task: no `task.md`, no sub-agent, no PM routing.
+The main session does it. A new screen or a new flow is NOT a patch — it is a UI task
+with the full `mockup` stage.
+1. Edit the approved file in place (`docs/mockups/v1.html`, or the task's `mockup.html`).
+   Tag each element you add or change `data-changed="<next version>"` (`1.1`) and set
+   `<meta name="mockup-version" content="<next version>">`. Re-run
+   `bash harness/split-mockup.sh` if it has `data-personas`.
+2. `bash harness/check-mockup.sh` exits 0.
+3. Show the human the RESULT, not a diff: `open <file>#<screen-id>` (the persona's own
+   file when split). The review layer outlines the `data-changed` elements and the
+   header says "N changed in v1.1". Ask: approve, or what to change.
+4. Not approved → edit and reopen (abandoned → revert the file). Approved → record the
+   reply verbatim in the task's `task.md` if there is one, else in
+   `docs/mockups/CHANGELOG.md` (`1.1 — <date> — <one line> — "<reply>"`). The previous
+   version's `data-changed` tags retire on their own (they only show while they match
+   the meta); remove them at the next patch to keep the markup clean.
+5. A behavior the new element implies (what sign-out DOES) still needs an AC tagged
+   `[screen: <id>]` in SPEC and a code task, which cites the new mockup version.
+
 ## Escalate to PM when
 - The request is too ambiguous to draw (who does what, on which screen) — the PM
   clarifies with the human; don't guess the flow.

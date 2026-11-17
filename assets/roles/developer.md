@@ -32,7 +32,7 @@ Implements the design. Writes code strictly within the spec/design — does not 
   The full `--no-boot` gate runs ONCE, at the end, as the stage verdict — not per edit.
 
 ## Definition of done (RULES R1)
-- `harness/validate.sh --no-boot` exits 0 (build/static + tests + greps + sync).
+- `bash harness/validate.sh --no-boot` exits 0 (build/static + tests + greps + sync).
   The boot probe (B2) is deliberately NOT run here — QA owns the single post-dev boot;
   one boot per task is the budget. The dev stage is NOT complete on a verbal claim.
 - **Solo track exception:** there is no QA leg, so run the FULL gate (no flags) —

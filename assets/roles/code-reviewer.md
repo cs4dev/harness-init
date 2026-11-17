@@ -15,7 +15,7 @@ Looks **backward from the implementation**: did it build what was specified, sou
   - Design fidelity — does the code match the design (incl. its readiness checklist)?
   - RULES compliance — the frozen domain rules.
   - Hidden flaws / technical debt.
-  - `harness/validate.sh --static` re-run and passes (build/static + rule greps +
+  - `bash harness/validate.sh --static` re-run and passes (build/static + rule greps +
     workflow sync). Do NOT run tests or boot the app here — dev already ran
     `--no-boot`, QA owns the single full-gate boot; that's what keeps the parallel
     legs cheap (one boot per task).

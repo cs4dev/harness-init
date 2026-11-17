@@ -21,6 +21,10 @@ version: 3
 #             Not a judgment call. Step 0, before the stage: the PM names the
 #             persona(s) in task.md. Then the human iterates on a static-HTML mockup
 #             until they approve it — no spec, design, or code exists before that.
+#             Exception: a PATCH to an approved mockup (button/field/copy/state on an
+#             existing screen, no new screen or flow) is no task and no stage; the main
+#             session edits it, bumps its version (v1 → v1.1), and the human approves it
+#             visually (roles/ux-designer.md, "Patching an approved mockup").
 tracks:
   solo: [dev, done]
   fast: [mockup?, spec, dev, review, qa, done]
@@ -112,8 +116,9 @@ rules:
     `done` requires review=APPROVE AND qa=PASS; if either fails, PM rolls back to dev
     and BOTH re-run after the fix.
   - Boot budget — ONE boot per task. The boot probe (B2) is the slowest check, so it
-    runs exactly once, owned by QA: dev runs `validate.sh --no-boot` (build/static +
-    tests + greps + sync), reviewer runs `validate.sh --static` (no tests, no boot),
+    runs exactly once, owned by QA: dev runs `bash harness/validate.sh --no-boot`
+    (build/static + tests + greps + sync), reviewer runs
+    `bash harness/validate.sh --static` (no tests, no boot),
     QA runs the FULL gate including the boot probe. Solo track: the main session runs
     the full gate itself — there the gate IS the independent verdict.
   - Track choice is logged in task.md with the trigger that justified it. When solo/fast

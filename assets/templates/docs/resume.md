@@ -1,7 +1,7 @@
 # resume — start-of-session bootstrap
 
 Run ONCE when a session starts on this repo, before picking up any task:
-0. `[ -x scripts/init.sh ] && bash scripts/init.sh` — services/env/deps up before
+0. If `scripts/init.sh` exists: `bash scripts/init.sh` — services/env/deps up before
    anything probes them. (Only exists when the stack has prerequisites; don't
    re-derive setup by trial and error — fix init.sh if it's wrong.)
 1. `git status` + `git log --oneline -10` — know the state you inherited.
