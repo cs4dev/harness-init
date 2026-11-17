@@ -4,231 +4,251 @@
 
 <h1 align="center">harness-init</h1>
 
-<p align="center"><em>A task is done when the gate exits 0 — never on a verbal claim.</em></p>
+<p align="center"><em>A task is done when the gate exits 0, not when someone says it is.</em></p>
 
-Claude Code skill that scaffolds a Level-3 Harness Engineering setup into any project:
-frozen SPEC, RULES, role SOPs, a master validation gate, and a three-track multi-agent
-workflow (solo / fast / full).
+`harness` is a Claude Code plugin. Its one skill, `/harness:init`, adds a harness to any
+project. A harness is the set of files that keeps AI-written code honest:
 
-Core idea: **the human owns the harness, the AI writes the code.** The harness is the
-durable asset — it lives in git, not in chat memory.
+- **SPEC.md**: the v1 scope, frozen after you sign it off.
+- **RULES.md**: about 10 red lines the code must never cross.
+- **harness/validate.sh**: one gate script that decides whether work is done.
+- **A multi-agent workflow**: role sub-agents (analyst, developer, reviewer, QA, …) that
+  pass each task along a fixed relay.
+
+The idea behind it: **you own the harness, the AI writes the code.** The harness lives in
+git, not in chat memory, so it outlasts any single session.
 
 ## Install
 
-This repo is a Claude Code marketplace (`cs4dev`) that ships one plugin, `harness`. In a session
-(Claude Code 2.1.275+):
+Requires Claude Code 2.1.275 or later. In a Claude Code session:
 
 ```
 /plugin install harness --marketplace cs4dev/harness-init
 ```
 
-Older Claude Code, or from the shell:
+Or from the shell:
 
 ```sh
 claude plugin marketplace add cs4dev/harness-init
-claude plugin install harness@cs4dev     # --scope project to share via the repo
+claude plugin install harness@cs4dev     # add --scope project to share it via the repo
 ```
 
-Then restart Claude Code or run `/reload-plugins`. The skill is `/harness:init`.
+Then restart Claude Code or run `/reload-plugins`.
 
-**Upgrading from 1.x (`/harness-init:init`):** in 2.0.0 the plugin was renamed from
-`harness-init` to `harness`, and the marketplace from `harness-init` to `cs4dev`. Remove
-both old names, then install as above:
+## Quick start
 
-```sh
-claude plugin uninstall harness-init@harness-init
-claude plugin marketplace remove harness-init
-```
-
-Already-scaffolded projects are unaffected: their `v1.x` stamps still resolve as
-upgrade's merge base.
-
-**Upgrading from the old git-clone install:** remove the clone first. Otherwise it loads
-as a second copy of the same plugin:
-
-```sh
-rm -rf ~/.claude/skills/harness-init
-```
-
-Projects you scaffolded from the clone keep working. Their SHA stamps still resolve as
-upgrade's merge base (fetched from GitHub).
-
-## Setup — one invocation per project
+Run the skill once per project, in the project's root:
 
 ```
 /harness:init web app, pnpm monorepo + Fastify + tRPC + React 19
 /harness:init CLI tool in Go
-/harness:init                 # existing repo: it scans and confirms the stack
+/harness:init                 # existing repo: it detects the stack and asks you to confirm
 ```
 
-Stack resolution: invocation argument → repo scan (detect, confirm) → for empty repos,
-it recommends 2-3 stacks for you to pick. Then it interviews you for the frozen parts —
-v1 scope, the correctness core (what data must never be corrupted, what logic exists
-exactly once), and 10-15 binary acceptance criteria — and generates:
+How it settles on the stack:
+
+1. If you typed one after the command, it uses that.
+2. Otherwise it scans the existing repo and asks you to confirm what it found.
+3. On an empty repo, it suggests 2-3 stacks and you pick one.
+
+It then asks you a short set of questions:
+
+- **Scope**: what is in v1, and what is explicitly out.
+- **Correctness core**: what data must never be corrupted, and what logic must exist
+  exactly once.
+- **Acceptance**: 10-15 pass/fail criteria for v1. It drafts them; you approve them.
+
+Nothing frozen is written until you sign off. When it finishes, the gate passes on the
+fresh scaffold. **Restart Claude Code before your first task**: the role sub-agents only
+load at session start. `claude --continue` restarts and keeps the conversation.
+
+## What you get
 
 ```
-SPEC.md                  frozen v1, only after your sign-off
-RULES.md                 ~10 red lines, each mechanically checkable one gets a gate grep
-harness/validate.sh      the gate: A build · B tests · B2 boot the artifact · C rules · D workflow sync
+SPEC.md                  frozen v1, written only after your sign-off
+RULES.md                 ~10 red lines; each one that can be checked mechanically gets a gate grep
+harness/validate.sh      the gate (categories below)
 harness/context.md       ~30-line digest every sub-agent reads first
-harness/workflow/        three-track relay + 7 role contracts + the mockup starter
-.claude/agents/          one sub-agent per role, rendered from workflow.yaml: model per
-                         tier; reviewer/QA/analyst/architect/designer write only docs/tasks/
-docs/personas/           GUI projects only: who uses the app (device, context, top tasks)
-docs/mockups/v1.html     GUI projects only: the v1 mockup you approved before SPEC froze
-docs/task-board.md       append-only, one task active at a time
-.github/workflows/       CI materializes prerequisites, then runs the same gate
+harness/skills/          short SOPs: resume, run, build, test, validate
+harness/workflow/        the three-track workflow, 7 role contracts, the mockup starter
+.claude/agents/          one sub-agent per role, generated from workflow.yaml
+.claude/settings.json    pre-approves the harness scripts and your stack's commands
+docs/task-board.md       append-only board, one task active at a time
+docs/personas/           GUI projects only: who uses the app
+docs/mockups/v1.html     GUI projects only: the v1 mockup you approved
+.github/workflows/       CI that sets up prerequisites, then runs the same gate
 ```
 
-On an empty repo it also writes a walking skeleton — the minimum code that makes every
-gate category judge something real, so the first PASS is earned rather than vacuous.
+On an empty repo it also writes a **walking skeleton**: the minimum code that gives every
+gate category something real to check, so the first pass means something.
 
-## Day-2 — the loop
+### The gate
 
-Every session starts with `harness/skills/resume.md`: git state → task-board → baseline
-`validate.sh --no-boot`. The board and git are the truth, not chat memory.
+| category | checks |
+|---|---|
+| A | build, typecheck, lint |
+| B | tests |
+| B2 | boots the real artifact and probes it (server: liveness route; CLI: smoke run; library: import) |
+| C | one grep per mechanically checkable rule |
+| D | the workflow files, role contracts and generated agents are in sync |
 
-Each new piece of work is a task `T-00X`. You (as PM, in the main session) write
-`docs/tasks/T-00X/task.md`, and the track is picked mechanically — simplest that fits,
-promote-never-demote:
+Missing prerequisites (database down, no `.env`) **fail** the gate. Nothing is ever
+skipped.
 
-### Feature — `fast` track (the default)
+### Permission prompts
 
-> T-004: users can export their trip history as CSV
+The harness runs a lot of shell commands. To keep them from stopping for approval
+each time, init writes allow rules into the project's `.claude/settings.json`:
 
-`spec → dev → review ∥ qa`. The requirements-analyst writes one `spec.md`, the developer
-implements against it, then reviewer and QA run **in parallel**. Done needs both
-verdicts; either failure rolls back to dev and both re-run.
+- One rule per harness script, e.g. `Bash(bash harness/validate.sh:*)`.
+- Read-only git: `git status`, `git log`, `git diff`.
+- Your stack's own commands (build, test, lint, run) and `scripts/init.sh` if it exists.
 
-### Feature touching the frozen core — `full` track
+Claude Code asks you before it writes the file, and you can review the rules in your
+sign-off. Things to know:
 
-> T-007: add a `POST /transfers` endpoint moving balance between two accounts
+- A rule matches one exact command text. The harness always runs scripts as
+  `bash harness/<script>.sh` from the repo root, one command at a time, because a
+  chained or piped command (`cd … &&`, `| tail`) needs every part allowed separately.
+- Project rules only apply after you trust the folder.
+- If your organization's managed settings use `allowManagedPermissionRulesOnly`,
+  project rules are ignored. Ask your admins to add the same rules to managed settings.
 
-Promoted because it hits an explicit trigger: new endpoint, schema change, migration,
-edits to frozen SPEC/RULES, a cross-package contract, or a new external dependency.
-Adds a `design` stage — the solution-architect writes binary acceptance criteria and the
-design in one artifact before any code exists.
+## Daily workflow
 
-### Feature a persona will see — persona → mockup first
+Start every session with `harness/skills/resume.md`. It checks git state, reads the task
+board, and runs a baseline `validate.sh --no-boot`. Git and the board are the source of
+truth, not chat memory.
 
-> T-009: technicians capture the customer's signature before closing a job
+Each piece of work is a task `T-00X`. You act as PM in the main session: write
+`docs/tasks/T-00X/task.md`, and the track follows from fixed rules. Pick the simplest
+track that fits; a task can move up a track, never down.
 
-GUI projects are **mockup-first**: you shape the app in static HTML before anything
+| track | when | stages |
+|---|---|---|
+| `solo` | trivial mechanical change: a typo, a rename, a log level | main session only; the full gate is the verdict |
+| `fast` | **the default**: features and most bug fixes | spec → dev → review ∥ qa |
+| `full` | new endpoint, schema change, migration, edit to SPEC/RULES, cross-package contract, new external dependency | design → dev → review ∥ qa |
+
+On `fast` and `full`, the reviewer and QA run **in parallel**. A task is done only when
+both pass; if either fails, it goes back to dev and both run again.
+
+Examples:
+
+- *T-004: users can export their trip history as CSV* → `fast`
+- *T-007: add `POST /transfers` moving balance between two accounts* → `full` (new endpoint)
+- *T-011: fix — refunds above the original charge are accepted* → `fast`. Write the
+  failing test first; it is the acceptance criterion.
+
+Bugs you notice mid-task are never fixed silently. They go into the board's *Bugs
+spotted* section right away, then become a task or are deferred.
+
+### The app boots once per task
+
+Booting the artifact is the slow check, so each stage runs only what it needs:
+
+| stage | command | categories |
+|---|---|---|
+| dev | `validate.sh --no-boot` | A, B, C, D |
+| reviewer | `validate.sh --static` | A, C, D |
+| QA | `validate.sh` | all, including B2 |
+
+On `solo`, the main session runs the full gate.
+
+## GUI projects: mockup first
+
+For apps with a user interface, you shape the app in static HTML before anything
 expensive to change exists.
 
-**At init.** The interview captures **personas** (`docs/personas/*.md`), e.g. a
-work-order app's *field technician* (phone, gloves, patchy signal), *dispatcher*
-(desktop, many jobs at once) and *site contact* (emailed link, approves work). Then it
-builds `docs/mockups/v1.html` as those personas, and you iterate on it until you
-approve it. Only then does it draft the acceptance criteria, freeze SPEC, and run the
-stack scaffolder and installs.
+**At init**, the interview also asks who uses the app. For a work-order app that might be
+a *field technician* (phone, gloves, patchy signal), a *dispatcher* (desktop, many jobs at
+once) and a *site contact* (opens an emailed link, approves work). Claude writes
+`docs/personas/*.md`, then builds `docs/mockups/v1.html` as those personas. You click
+through it and ask for changes until you approve it. Only then are the acceptance
+criteria drafted, SPEC frozen, and the stack installed.
 
 **On every task that adds or changes a screen or flow:**
 
-`persona → mockup → (you approve) → spec → dev → review ∥ qa`
+```
+persona → mockup → (you approve) → spec → dev → review ∥ qa
+```
 
-The PM names the persona(s) in `task.md` first. The `ux-designer` then builds
-`docs/tasks/T-009/mockup.html` **as the persona**, from your request alone: one
-self-contained static HTML file, clickable screen to screen at the persona's viewport,
-with real copy and the offline/error/empty states they'll hit. `check-mockup.sh` fails
-it if it loads anything external or has an unreachable screen. You open it, click
-through, and approve or send changes. No spec, design or code exists until you say yes.
+- The PM names the persona(s) in `task.md`.
+- The `ux-designer` builds `docs/tasks/T-00X/mockup.html` as that persona: one
+  self-contained HTML file, clickable screen to screen, at the persona's viewport, with
+  real copy and the error, empty and offline states.
+- `check-mockup.sh` fails the mockup if it loads anything external or a screen can't be
+  reached.
+- No spec, design or code is written until you approve.
+- Every acceptance criterion in the spec is tagged with the screens that show it
+  (`AC-3 … [screen: signoff]`) or `[non-visual]`. The gate fails if one is untagged or a
+  screen is left uncovered.
+- QA later walks the real app through the same screens as the persona.
 
-Every mockup comes with a review layer from the starter. A bottom bar has the screens
-panel, the persona switch, ‹ n/N › and the shortcuts. Each screen gets a header saying
-what it is (`i`), and a shortcuts card appears on the first visit. Keys: `0` for screens,
-`← →` to step through, `.` to hide the bar. Clicking something that isn't wired flashes
-what is. Headless screenshots leave the layer out unless the URL has `?bar`.
+**Reviewing a mockup.** Each mockup has a review bar at the bottom: a screens list, a
+persona switch, and ‹ n/N › navigation. Keys: `0` screens, `← →` step, `i` screen info,
+`.` hide the bar. Clicking something that isn't wired highlights what is. Headless
+screenshots hide the bar unless the URL has `?bar`.
 
-With several personas, each one gets its own file. The designer tags every screen in
-the combined mockup with `data-personas="parent kid"`, and `split-mockup.sh` writes
-`v1-parent.html`, `v1-kid.html`, … beside it. Each holds only that persona's screens,
-starts at that persona's first screen and uses the viewport from its persona doc. `P` /
-`Shift+P` step between the files. The combined file is the only one anyone edits, and
-the workflow gate fails if a generated file is stale.
+**Several personas.** The designer tags each screen with `data-personas="parent kid"`, and
+`split-mockup.sh` generates one file per persona (`v1-parent.html`, `v1-kid.html`, …),
+each starting on that persona's first screen at its viewport. `P` / `Shift+P` switch
+between them. Only edit the combined file; the gate fails if a generated file is stale.
 
-The spec written after approval tags every acceptance criterion with the screens that
-show it (`AC-3 … [screen: signoff]`) or `[non-visual]`. `check-mockup.sh` fails the
-spec if a criterion is untagged or any approved screen is left uncovered. Dev builds to
-the mockup, and QA walks the real app through the same screens as the persona.
+## Upgrading a harnessed project
 
-### Bug fix — usually `fast`, sometimes `solo`
-
-> T-011: fix — refunds above the original charge are accepted
-
-A fix that touches correctness-core logic stays on `fast` so QA independently re-runs the
-gate. Add the failing test first; it's the acceptance criterion. Bugs you spot mid-task
-never get silently fixed — they're logged to the board's *Bugs spotted* section the
-moment they're found, then triaged into a task or deferred.
-
-### Trivial mechanical change — `solo` track
-
-> bump the log level, rename a variable, fix a typo in a route string
-
-No sub-agents. The main session implements and the **full gate is the only verdict** —
-no self-grading.
-
-### One boot per task
-
-Booting the artifact is the slow check, so it happens exactly once:
-
-| stage | command | covers |
-|---|---|---|
-| dev | `validate.sh --no-boot` | A + B + C + D |
-| reviewer | `validate.sh --static` | A + C + D |
-| QA | `validate.sh` | everything, incl. the boot |
-
-On `solo`, the main session just runs the full gate.
-
-## Upgrading an existing harness
-
-Scaffolds are one-shot copies, so plugin improvements don't reach already-harnessed
-projects on their own. Update the plugin, then run upgrade inside the project:
+A scaffold is a one-time copy, so later plugin releases don't reach a project by
+themselves. Update the plugin:
 
 ```sh
 claude plugin marketplace update cs4dev
 claude plugin update harness@cs4dev     # then restart, or /reload-plugins
 ```
+
+Then, inside the project:
+
 ```
 /harness:init upgrade
 ```
 
-To get new releases automatically, turn on auto-update in `/plugin` → Marketplaces →
-cs4dev → Enable auto-update. It is off by default for third-party marketplaces.
+What upgrade does:
 
-It refreshes only the generic machinery (`workflow.yaml`, role contracts, the
-`validate-workflow.sh` / `sync-agents.sh` / write-guard / `check-mockup.sh` / `split-mockup.sh` scripts and the
-mockup starter, then re-renders
-`.claude/agents/`), keeps your local edits to them, never touches SPEC/RULES/
-`validate.sh`, re-runs the gate, and leaves one diff for you to commit. Needs a clean
-git tree. Scaffolds record the release (`v1.2.0`) in `harness/workflow/.harness-version`.
-A dev clone records its commit SHA instead. Upgrade fetches that ref from GitHub as the
-merge base and does a real 3-way merge (`git merge-file`). Unstamped projects, or
-upgrades run offline, fall back to a reviewed 2-way diff.
+- Refreshes only the generic machinery: `workflow.yaml`, the role contracts, the gate
+  helper scripts and the mockup starter. It then regenerates `.claude/agents/`.
+- Keeps your local edits to those files. It never touches SPEC, RULES or
+  `validate.sh`.
+- Re-runs the gate and leaves one diff for you to review and commit.
+- Needs a clean git tree.
+
+Each scaffold records its plugin release (for example `v2.3.1`) in
+`harness/workflow/.harness-version`. Upgrade fetches that release from GitHub and uses it
+for a 3-way merge (`git merge-file`). If the stamp is missing or the release can't be
+fetched (offline), it falls back to a 2-way diff that it walks through with you.
+
+To get releases automatically: `/plugin` → Marketplaces → cs4dev → Enable auto-update.
+It is off by default for third-party marketplaces.
+
+## Rules of thumb
+
+- The gate will block real work. That is the point: fix the work, not the gate.
+- B2 exists because "compiles" is not "runs".
+- Downstream stages never edit upstream artifacts. Blockers go back through the PM.
+
+See [skills/init/SKILL.md](skills/init/SKILL.md) for the full procedure.
 
 ## Contributing
 
-Work from a clone and load it in place: `claude --plugin-dir .`, or
-`/plugin marketplace add ./` (a local marketplace is loaded without a cache copy).
+Work from a clone and load it in place with `claude --plugin-dir .`, or
+`/plugin marketplace add ./` (a local marketplace is used without a cache copy).
 
-The skill holds itself to its own rule: a change is done when `bash harness/validate.sh`
-exits 0. It needs `python3` and the `claude` CLI (for `claude plugin validate`). It
-scaffolds throwaway repos and asserts both paths — `scaffold.sh` output,
-`validate-workflow.sh` rejecting broken workflows, the `validate.sh` template failing
-until filled, plus the plugin manifests and version stamps. CI runs the same script on
-Linux and macOS.
+The repo follows its own rule: a change is done when `bash harness/validate.sh` exits 0.
+The gate needs `python3` and the `claude` CLI (for `claude plugin validate`). It scaffolds
+throwaway repos and checks `scaffold.sh` output, that `validate-workflow.sh` rejects
+broken workflows, that the `validate.sh` template fails until it is filled in, and the
+plugin manifests and version stamps. CI runs the same gate on Linux and macOS.
 
-**Releases:** plugin users only receive an update when `version` in
+**Releases.** Plugin users only get an update when `version` in
 `.claude-plugin/plugin.json` changes. The gate fails if shipped files (`skills/`,
-`assets/`, `scripts/`, `references/`) changed since the current version's tag, so a
-change to them must include a version bump. On merge to main, CI tags `v<version>`.
-That tag is what scaffolds stamp and what upgrade fetches.
-
-## Notes
-
-- The gate will block real work. That is the point — fix the work, not the gate.
-- Gate checks **fail** on missing prerequisites (DB down, `.env` absent). They never skip.
-- B2 exists because "compiles" ≠ "runs": it boots the real artifact and probes it.
-- Downstream never edits upstream. Blockers roll back through the PM.
-
-See [skills/init/SKILL.md](skills/init/SKILL.md) for the full contract.
+`assets/`, `scripts/`, `references/`) changed since the current version's tag, so any
+change to them needs a version bump. On merge to main, CI tags `v<version>`; that tag is
+what scaffolds record and what upgrade fetches.

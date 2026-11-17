@@ -80,6 +80,8 @@ file's directory and not to the user's project.
 - `assets/templates/` — RULES, SPEC, CLAUDE.md index, validate.sh skeleton, CI workflow
   (ci.yml.template → .github/workflows/harness-gate.yml), `docs/` (dev-map, task-board,
   task, context, resume, persona): instantiate by filling `{{PLACEHOLDERS}}`.
+  `assets/templates/settings.json.template` → the project's `.claude/settings.json`:
+  allow rules for every harness script plus read-only git (step 3a item 9).
 - `scripts/version.sh` — computes the `.harness-version` stamp (release tag, or commit
   SHA in a dev clone) and materializes a stamp's assets as upgrade's merge base.
 - `scripts/scaffold.sh <target> <project-name>` — copies every verbatim asset plus the
@@ -142,6 +144,8 @@ the failure this step prevents.
 1. `bash "${CLAUDE_PLUGIN_ROOT}/scripts/scaffold.sh" <repo> "<project name>"` now — it
    only copies harness machinery (workflow, roles, check-mockup.sh, mockup starter),
    no stack. Tell the human to restart Claude Code before the first task (step 4).
+   Write `.claude/settings.json` now too (step 3a item 9, harness rules only), so the
+   mockup scripts below don't prompt; 3a adds the stack's commands.
 2. **Personas (step 0):** write `docs/personas/<slug>.md` per Q5 persona from
    `templates/docs/persona.md` (kebab-case slug — mockups and tasks cite it); one
    message lists each persona's device, context of use, top tasks and must-never-happen
@@ -211,6 +215,17 @@ every other file is independent once the sign-off is in. So:
      provide them (service containers, generated .env). Skip this file only if the
      repo has no GitHub remote AND the user declines; otherwise generate it.
   8. `CLAUDE.md` from template (merge with any existing content — read it first).
+  9. `.claude/settings.json` from `templates/settings.json.template` — pre-approves the
+     harness's own commands so every gate run doesn't stop for a permission prompt.
+     Append one `Bash(<cmd>:*)` rule per Q4 command (typecheck/lint/test/build/run,
+     exactly as context.md writes them) and `Bash(bash scripts/init.sh:*)` when item 6
+     generated it. Allow rules only — never deny/ask rules, `defaultMode`, or broad
+     patterns like `Bash(npm:*)`. File exists → merge into its `permissions.allow`,
+     keep everything else. Claude Code asks the human before writing a settings file:
+     that prompt is their consent, so name the rules in the sign-off summary.
+     Limits to tell the human: project rules apply only once the folder is trusted,
+     and an org's managed setting `allowManagedPermissionRulesOnly` ignores them
+     (then their admins must add the rules to managed settings).
 
 **3b. Skeleton + gate (sequential — needs 3a done).**
 - **Empty repo → walking skeleton.** The gate never skips, so an empty repo gets the
@@ -226,7 +241,7 @@ every other file is independent once the sign-off is in. So:
   chmod +x. The template FAILS until it is really filled: each category ends in
   `wired <cat>` (zero checks there = FAIL), and section 0 fails on any `{{…}}` left in
   SPEC/RULES/CLAUDE/harness/docs/CI — delete unused example lines, don't leave them.
-- Iterate with `validate.sh --no-boot` until green (fix what each failure names,
+- Iterate with `bash harness/validate.sh --no-boot` until green (fix what each failure names,
   re-run — don't re-run the whole gate to check a one-line fix that a single command
   proves). Then run the FULL gate ONCE: **it must pass on the clean scaffold before
   you claim done.** A B2 failure there → fix, re-run full.
@@ -246,7 +261,7 @@ every other file is independent once the sign-off is in. So:
   promote-never-demote), then routes one ISOLATED sub-agent per stage by role name
   (`subagent_type: code-reviewer` …) with NO `model` param — `.claude/agents/<role>.md`
   carries the tier's model and the judges' write guard (`tier_models` change →
-  re-run `harness/sync-agents.sh`; the gate fails until you do); each reads
+  re-run `bash harness/sync-agents.sh`; the gate fails until you do); each reads
   `harness/context.md` first plus its contract's inputs and writes its artifact.
   Downstream NEVER edits upstream — blockers roll back via the PM.
 - GUI projects, every task that adds or changes a screen or flow: **persona first**
@@ -254,10 +269,15 @@ every other file is independent once the sign-off is in. So:
   builds a clickable static-HTML mockup AS the persona; the PM opens it for the human;
   feedback re-runs the designer), **then spec/design** — only after the human's
   explicit approval, with every criterion tagged with the screens that show it. QA
-  later walks the real app through the mockup as the persona.
+  later walks the real app through the mockup as the persona. A small edit to an
+  already-approved mockup (button, field, copy, a state on an existing screen) is a
+  **patch**, not a task: the main session edits it in place, marks the change
+  `data-changed`, bumps `<meta name="mockup-version">` (v1 → v1.1), opens it for the
+  human to SEE (`open …#<screen>`), and the human approves visually
+  (`roles/ux-designer.md`, "Patching"). A new screen or flow is never a patch.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
   requires both verdicts; either failure rolls back to dev and both re-run.
-- ONE boot per task: dev runs `validate.sh --no-boot`, reviewer `--static`, QA the
+- ONE boot per task: dev runs `bash harness/validate.sh --no-boot`, reviewer `--static`, QA the
   FULL gate (the only boot). Solo track: the main session runs the full gate — there
   the gate is the verdict. No self-grading on fast/full.
 - Discipline that keeps loops recoverable: ONE task active at a time; the board is
@@ -270,6 +290,11 @@ every other file is independent once the sign-off is in. So:
 - The gate will block real work. That is the point. Fix the work, not the gate.
 
 ## Hard-won portability notes (bake into generated files where relevant)
+- One invocation form per command: `bash harness/<script>.sh [args]` from the repo
+  root, one command per Bash call. No `./`, no `cd … &&`, no `&&`/`;` chains, no pipes
+  (`2>&1 | tail`). Claude Code matches every part of a chained command against the
+  allow rules separately, so one prefix rule per script only holds if the text never
+  varies. Generated SOPs, context.md and dev-map write commands in exactly this form.
 - bash gates: `set -uo pipefail` WITHOUT `-e` (cleanup must run; track a fail flag).
 - macOS/BSD grep/sed: `[[:space:]]`, never `\s`.
 - zsh: `$H:assets/...` parses `:a` as a path modifier — write `"${H}:assets/..."`.

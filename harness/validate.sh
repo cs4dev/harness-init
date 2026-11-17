@@ -252,6 +252,21 @@ expect fail "rejects: a listed persona with no screens" bash "$d/harness/split-m
 d="$TMP/s2"; fresh "$d"; rm "$d/harness/split-mockup.sh"
 expect fail "rejects: mockup stage without split-mockup.sh" bash "$d/harness/validate-workflow.sh"
 
+printf '\n=== F3. Pre-approved commands (.claude/settings.json) ===\n'
+st=assets/templates/settings.json.template
+expect pass "$st is valid JSON" python3 -c 'import json,sys; json.load(open(sys.argv[1]))' "$st"
+# Every script the model runs needs its allow rule; the guard is a hook, never run by hand.
+for s in validate.sh $(cd assets && ls *.sh); do
+  [ "$s" = guard-artifact-write.sh ] && continue
+  grep -qF "\"Bash(bash harness/$s:*)\"" "$st" && ok "allow rule for harness/$s" || bad "no allow rule for harness/$s in $st"
+done
+# A rule matches one command text, so shipped docs must invoke scripts one way only:
+# `bash harness/<x>.sh …` — never ./, a bare path with args, a cd, a chain or a pipe.
+drift=$(grep -rnE '`(\./[a-z]|(harness/)?[a-z-]+\.sh -|harness/[a-z-]+\.sh [a-z<]|cd [A-Za-z0-9./~$"][^`]*&&|[^`]*\.sh[^`]*(&&|[|]))' \
+  assets/roles assets/workflow.yaml assets/templates/docs skills/init/SKILL.md 2>/dev/null)
+[ -z "$drift" ] && ok "shipped docs invoke harness scripts as \`bash harness/<x>.sh\`" \
+  || bad "harness script invoked in a form the allow rules miss: $drift"
+
 printf '\n=== G. Docs ↔ files ===\n'
 for p in $(grep -oE '(assets|scripts|references)/[A-Za-z0-9_./-]+' skills/init/SKILL.md README.md | cut -d: -f2 \
            | sed -E 's/[.,)]+$//' | sort -u); do

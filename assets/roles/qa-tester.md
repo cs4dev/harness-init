@@ -15,7 +15,7 @@ Looks **forward from behavior**: does it actually work, end to end? The true clo
   - Functional correctness — each acceptance criterion exercised (unit and/or e2e).
   - Edge cases and regressions — did anything previously working break?
   - Stability / baseline — the project's full test suites green (see harness/skills/test.md); coverage not dropped.
-  - The FULL `harness/validate.sh` re-run (no flags): tests + boot probe included.
+  - The FULL `bash harness/validate.sh` re-run (no flags): tests + boot probe included.
     QA owns the ONLY boot of the task — dev ran `--no-boot`, the reviewer `--static`.
     Behavior must be verified the way a user would hit it (run the artifact, exercise
     the flows), not inferred from unit tests alone.

@@ -35,10 +35,14 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
     is for in `task.md` (slugs from `docs/personas/`). None fits → ask the human who
     it's for (device, context of use, top tasks, must-never-happen), write
     `docs/personas/<slug>.md` from their answers, then route the mockup.
+  - **Exception — mockup patch:** a small edit to an approved mockup that adds no
+    screen and no flow (button, field, copy, a state on an existing screen) skips the
+    stage. The main session patches it per `roles/ux-designer.md` "Patching" and the
+    human approves it visually. A new screen or flow is never a patch.
   - Then `mockup` (ux-designer), then `spec`/`design`. Nothing else — no spec, design,
     or code — is produced until the human has approved the mockup.
 - **Human sign-off on `approval: human` stages** (the mockup): when
-  `harness/check-mockup.sh docs/tasks/<id>` exits 0, give the human the file path to
+  `bash harness/check-mockup.sh docs/tasks/<id>` exits 0, give the human the file path to
   open (`open docs/tasks/<id>/mockup.html`) and the designer's screen list, and ask:
   approve, or what to change. Record the reply VERBATIM in the routing log. Change
   requests → append them to `task.md` and re-run `ux-designer` (same stage, not a
