@@ -179,10 +179,10 @@ expect pass "design.md (full track) is traced too" bash "$d/harness/check-mockup
 rm "$d/docs/tasks/T-001/design.md"
 
 # Init's v1 mockup traces against SPEC.md.
-mkdir -p "$d/docs/mockups"; cp assets/mockup-starter.html "$d/docs/mockups/v1.html"
-expect pass "docs/mockups/v1.html before SPEC passes" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/v1.html"
+mkdir -p "$d/docs/mockups"; cp assets/mockup-starter.html "$d/docs/mockups/index.html"
+expect pass "docs/mockups/index.html before SPEC passes" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/index.html"
 printf -- '## §8\n- AC-1 jobs listed [screen: jobs]\n' > "$d/SPEC.md"
-expect fail "rejects: v1 mockup screens uncovered by SPEC §8" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/v1.html"
+expect fail "rejects: v1 mockup screens uncovered by SPEC §8" bash "$d/harness/check-mockup.sh" "$d/docs/mockups/index.html"
 expect fail "workflow gate scans docs/mockups/" bash "$d/harness/validate-workflow.sh"
 printf -- "$spec_ok" > "$d/SPEC.md"
 expect pass "v1 mockup traced by SPEC §8 passes" bash "$d/harness/check-mockup.sh"

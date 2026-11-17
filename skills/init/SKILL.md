@@ -151,14 +151,15 @@ the failure this step prevents.
    message lists each persona's device, context of use, top tasks and must-never-happen
    lines for correction.
 3. **v1 mockup:** follow `roles/ux-designer.md` yourself (no sub-agents yet) and build
-   `docs/mockups/v1.html` from `harness/workflow/mockup-starter.html`, AS the personas,
+   `docs/mockups/index.html` from `harness/workflow/mockup-starter.html`, AS the personas,
+   (hand-edited static HTML with no build step: do not scaffold a generator)
    covering the Q1 v1 scope — every screen, flow, and non-happy state the v1 has.
    Several personas: tag each screen `data-personas="<slug> …"` and run
-   `bash harness/split-mockup.sh`. It writes `v1-<slug>.html` per persona, linked for
+   `bash harness/split-mockup.sh`. It writes `index-<slug>.html` per persona, linked for
    the review bar's persona switch (`P` / `Shift+P`; see ux-designer.md). Edit only
-   `v1.html` and re-run the split. `bash harness/check-mockup.sh` must exit 0 (no SPEC
+   `index.html` and re-run the split. `bash harness/check-mockup.sh` must exit 0 (no SPEC
    yet, so it checks structure and flow only).
-4. **Iterate:** give the human the path (`open docs/mockups/v1.html`) and a one-line-
+4. **Iterate:** give the human the path (`open docs/mockups/index.html`) and a one-line-
    per-screen list; ask approve, or what to change. Revise and re-check until they say
    approved — explicitly, never on silence. Stay in static HTML the whole time: if the
    human asks for real code, say the mockup is approved first.
@@ -271,10 +272,11 @@ every other file is independent once the sign-off is in. So:
   explicit approval, with every criterion tagged with the screens that show it. QA
   later walks the real app through the mockup as the persona. A small edit to an
   already-approved mockup (button, field, copy, a state on an existing screen) is a
-  **patch**, not a task: the main session edits it in place, marks the change
-  `data-changed`, bumps `<meta name="mockup-version">` (v1 → v1.1), opens it for the
-  human to SEE (`open …#<screen>`), and the human approves visually
-  (`roles/ux-designer.md`, "Patching"). A new screen or flow is never a patch.
+  **patch**, not a task: the main session edits a copy (`docs/tasks/<id>/mockup.html`),
+  marks the change `data-changed`, bumps `<meta name="mockup-version">` (v1 → v1.1),
+  opens it for the human to SEE (`open …#<screen>`), and on approval promotes the copy
+  over `docs/mockups/index.html` and logs `CHANGELOG.md` (`roles/ux-designer.md`,
+  "Patching"). A new screen or flow is never a patch.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
   requires both verdicts; either failure rolls back to dev and both re-run.
 - ONE boot per task: dev runs `bash harness/validate.sh --no-boot`, reviewer `--static`, QA the

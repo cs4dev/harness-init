@@ -37,8 +37,12 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
     `docs/personas/<slug>.md` from their answers, then route the mockup.
   - **Exception — mockup patch:** a small edit to an approved mockup that adds no
     screen and no flow (button, field, copy, a state on an existing screen) skips the
-    stage. The main session patches it per `roles/ux-designer.md` "Patching" and the
-    human approves it visually. A new screen or flow is never a patch.
+    stage. The main session patches a COPY (`docs/tasks/<id>/mockup.html`, byte-identical
+    to `docs/mockups/index.html`) per `roles/ux-designer.md` "Patching", the human
+    approves it visually, and only then do you promote it: diff against the current
+    baseline, copy it over `docs/mockups/index.html`, re-run `split-mockup.sh`, add the
+    `CHANGELOG.md` line with the reply verbatim. The same promotion closes a full
+    `mockup` stage on a task that changed an existing mockup (make the copy first). A new screen or flow is never a patch.
   - Then `mockup` (ux-designer), then `spec`/`design`. Nothing else — no spec, design,
     or code — is produced until the human has approved the mockup.
 - **Human sign-off on `approval: human` stages** (the mockup): when
