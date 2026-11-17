@@ -53,6 +53,10 @@ never touch them; if their template changed, just tell the user what changed.
    new wording and offer to update them. Existing mockups keep passing: ones that tag
    criteria with `data-ac` are checked the old way; tasks already past their mockup
    stage finish on the order they started with.
+   Mockup patches (2.5.0): the approved baseline is `docs/mockups/index.html` (was `v1.html`;
+   offer to `git mv` it and its per-persona files, then re-run `split-mockup.sh`). Patches
+   edit a copy under `docs/tasks/<id>/` and the PM promotes it on approval; show the user
+   the new `roles/ux-designer.md` "Patching" section. No mockup generators.
    Pre-approved commands (2.3.1): if the project's `.claude/settings.json` lacks the
    rules in `assets/templates/settings.json.template`, show the missing ones plus one
    rule per command in context.md, and offer to merge them into `permissions.allow`

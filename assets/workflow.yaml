@@ -22,9 +22,10 @@ version: 3
 #             persona(s) in task.md. Then the human iterates on a static-HTML mockup
 #             until they approve it — no spec, design, or code exists before that.
 #             Exception: a PATCH to an approved mockup (button/field/copy/state on an
-#             existing screen, no new screen or flow) is no task and no stage; the main
-#             session edits it, bumps its version (v1 → v1.1), and the human approves it
-#             visually (roles/ux-designer.md, "Patching an approved mockup").
+#             existing screen, no new screen or flow) is no stage; the main
+#             session edits a COPY (docs/tasks/<id>/mockup.html), bumps its version
+#             (v1 → v1.1), the human approves it visually, then the PM promotes it over
+#             docs/mockups/index.html (roles/ux-designer.md, "Patching an approved mockup").
 tracks:
   solo: [dev, done]
   fast: [mockup?, spec, dev, review, qa, done]
@@ -36,6 +37,7 @@ stages:
   # the request alone. The human iterates on it and approves it before any spec,
   # design, or code exists — reworking UX in static HTML is cheap; in code it isn't.
   # The spec/design that follows traces every acceptance criterion to its screens.
+  # The ux-designer edits the HTML directly. No generator, no build script, no helper files.
   - id: mockup
     agent: ux-designer
     reads: [task.md, docs/personas/]

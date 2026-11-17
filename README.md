@@ -75,7 +75,7 @@ harness/workflow/        the three-track workflow, 7 role contracts, the mockup 
 .claude/settings.json    pre-approves the harness scripts and your stack's commands
 docs/task-board.md       append-only board, one task active at a time
 docs/personas/           GUI projects only: who uses the app
-docs/mockups/v1.html     GUI projects only: the v1 mockup you approved
+docs/mockups/index.html     GUI projects only: the v1 mockup you approved
 .github/workflows/       CI that sets up prerequisites, then runs the same gate
 ```
 
@@ -163,7 +163,7 @@ expensive to change exists.
 **At init**, the interview also asks who uses the app. For a work-order app that might be
 a *field technician* (phone, gloves, patchy signal), a *dispatcher* (desktop, many jobs at
 once) and a *site contact* (opens an emailed link, approves work). Claude writes
-`docs/personas/*.md`, then builds `docs/mockups/v1.html` as those personas. You click
+`docs/personas/*.md`, then builds `docs/mockups/index.html` as those personas. You click
 through it and ask for changes until you approve it. Only then are the acceptance
 criteria drafted, SPEC frozen, and the stack installed.
 
@@ -191,7 +191,7 @@ persona switch, and ‹ n/N › navigation. Keys: `0` screens, `← →` step, `
 screenshots hide the bar unless the URL has `?bar`.
 
 **Several personas.** The designer tags each screen with `data-personas="parent kid"`, and
-`split-mockup.sh` generates one file per persona (`v1-parent.html`, `v1-kid.html`, …),
+`split-mockup.sh` generates one file per persona (`index-parent.html`, `index-kid.html`, …),
 each starting on that persona's first screen at its viewport. `P` / `Shift+P` switch
 between them. Only edit the combined file; the gate fails if a generated file is stale.
 
