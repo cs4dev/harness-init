@@ -4,7 +4,7 @@
 > Open SPEC.md / RULES.md in full only where the task touches them.
 
 ## Commands
-build `{{BUILD_CMD}}` · test `{{TEST_CMD}}` · run `{{RUN_CMD}}` · gate `bash harness/validate.sh` (`--no-boot` dev, `--static` review, full = QA/solo)
+build `{{BUILD_CMD}}` · test `{{TEST_CMD}}` · run `{{RUN_CMD}}` · gate `bash harness/validate.sh` (`--no-boot` dev, `--static` review, full = QA/solo; on a task add `--base <task.md Base>` → affected tests only)
 Run each command exactly as written, from the repo root, one per call: no `./`, no `cd … &&`, no pipes or `&&` chains. `.claude/settings.json` pre-approves these exact forms; anything else prompts for permission.
 
 ## Frozen rules (one-liners — full text in RULES.md)

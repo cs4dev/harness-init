@@ -151,9 +151,30 @@ Booting the artifact is the slow check, so each stage runs only what it needs:
 |---|---|---|
 | dev | `validate.sh --no-boot` | A, B, C, D |
 | reviewer | `validate.sh --static` | A, C, D |
-| QA | `validate.sh` | all, including B2 |
+| QA | `validate.sh` | all, including B2 (B reused if the code is unchanged since dev's run) |
 
 On `solo`, the main session runs the full gate.
+
+Tests run on the **affected** set, the way `nx affected` or `turbo --filter=...[ref]`
+do: every gate run on a task passes `--base <the task's base commit>`, and B runs the
+tests for what changed plus everything that depends on it, transitively. Change
+feature C, and C's tests run, along with feature A's if A imports C; feature B's don't.
+The selection comes from the stack's own tool (`pnpm --filter "...[base]"`,
+`vitest --changed`, `jest --changedSince`, `bun test --changed`, Nx, Turbo, Go's test
+cache). The gate falls back to the whole suite when it can't be sure: no base, a base
+that isn't an ancestor of HEAD, or a change to a shared input (lockfile, root config,
+test setup, schema/migrations, anything reached without an import). CI passes no base,
+so it always runs everything.
+
+The test suite runs once per task as well. A passing run stamps a hash of the working
+tree in `.git/`. If the code hasn't changed since the dev's run, QA's full gate reuses
+that result (`--fresh` forces a re-run). Writing task notes doesn't count as a change.
+CI always runs everything.
+
+QA tests the change, not the whole system. It works out a scope from the diff against
+the task's base commit: every acceptance criterion, the screens those criteria tag, and
+the direct consumers of the changed code. Anything outside that scope is left to the
+suite and CI.
 
 ## GUI projects: mockup first
 
@@ -183,7 +204,7 @@ persona → mockup → (you approve) → spec → dev → review ∥ qa
 - Every acceptance criterion in the spec is tagged with the screens that show it
   (`AC-3 … [screen: signoff]`) or `[non-visual]`. The gate fails if one is untagged or a
   screen is left uncovered.
-- QA later walks the real app through the same screens as the persona.
+- QA later walks the real app through the screens the task touched, as the persona.
 
 **Reviewing a mockup.** Each mockup has a review bar at the bottom: a screens list, a
 persona switch, and ‹ n/N › navigation. Keys: `0` screens, `← →` step, `i` screen info,

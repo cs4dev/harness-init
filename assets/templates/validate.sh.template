@@ -6,6 +6,25 @@
 #   (no args)  — full gate: A + B + B2 + C + D. Run by QA (and by the dev on solo tasks).
 #   --no-boot  — A + B + C + D (skips only the boot probe). Run by the developer.
 #   --static   — A + C + D only (skips tests and the boot probe). Run by the code reviewer.
+#   --base <commit> — run only the AFFECTED tests: what changed since <commit> plus
+#               everything that depends on it, transitively (the Nx-affected /
+#               `turbo --filter=...[ref]` rule). Pass task.md's **Base** line. Also
+#               read from $HARNESS_BASE. Without a base, B runs the whole suite.
+#   --all      — the whole suite even with a base.
+#   --fresh    — with the full gate: re-run B even when the reuse below applies.
+#
+# Affected selection falls back to the WHOLE suite whenever it can't be sure: no base,
+# a base that isn't an ancestor of HEAD (or isn't in a shallow clone), or a change to a
+# shared input (GLOBAL_INPUTS — lockfiles, root configs, test setup, schema/migrations,
+# anything read without an import). CI passes no base, so CI always runs everything:
+# that backstop is what makes affected-only safe locally.
+#
+# Test reuse (the suite runs ONCE per task too): a passing run that included B stamps
+# the working tree's content hash in .git/harness-tests-pass. The full gate skips B
+# when the tree is byte-identical to that stamp — the dev already ran the suite on
+# exactly this code. Task artifacts (docs/tasks/, docs/task-board.md) are left out of
+# the hash, so writing dev-notes / review / qa-report never forces a re-run; any code
+# edit does. CI starts from a clean checkout with no stamp, so it always runs B.
 #
 # Conventions that survived contact with real projects:
 #   - set -uo pipefail but NOT -e (cleanup paths must run; track $fail instead)
@@ -21,11 +40,68 @@
 set -uo pipefail
 cd "$(dirname "$0")/.."
 
-RUN_TESTS=1; RUN_BOOT=1
-case "${1:-}" in
-  --static)  RUN_TESTS=0; RUN_BOOT=0 ;;
-  --no-boot) RUN_BOOT=0 ;;
-esac
+RUN_TESTS=1; RUN_BOOT=1; FRESH=0; ALL=0; BASE=${HARNESS_BASE:-}
+while [ $# -gt 0 ]; do
+  case "$1" in
+    --static)  RUN_TESTS=0; RUN_BOOT=0 ;;
+    --no-boot) RUN_BOOT=0 ;;
+    --fresh)   FRESH=1 ;;
+    --all)     ALL=1 ;;
+    --base)    [ -n "${2:-}" ] || { printf -- '--base needs a commit\n'; exit 2; }; BASE=$2; shift ;;
+    --base=*)  BASE=${1#--base=} ;;
+    *) printf 'unknown argument: %s (use --static, --no-boot, --base <commit>, --all, --fresh)\n' "$1"; exit 2 ;;
+  esac
+  shift
+done
+
+# Shared inputs: a change to any of these runs the WHOLE suite — a dependency graph
+# can't see what they affect. Paths are relative to the project root.
+GLOBAL_INPUTS='(^|/)(package-lock\.json|pnpm-lock\.yaml|yarn\.lock|bun\.lockb?|go\.sum|Cargo\.lock|poetry\.lock|uv\.lock)$|^(package\.json|pnpm-workspace\.yaml|tsconfig[^/]*\.json|\.env[^/]*)$|^harness/validate\.sh$'
+# {{GLOBAL_INPUTS_RE}} — replace this line with the project's own, e.g.
+#   GLOBAL_INPUTS="$GLOBAL_INPUTS|^vitest\.config\.|/test-support/|^db/migrations/|/schema\.ts$"
+#   (test config/setup, test-DB scripts, schema + migrations, shared fixtures, and code
+#   reached without an import: DB tables, HTTP between packages, i18n by key, events).
+
+# changed_files <base> — every file that differs from <base>: committed, staged,
+# unstaged and untracked; task artifacts excluded (they never change behavior).
+changed_files() {
+  { git diff --relative --name-only "$1" 2>/dev/null; git ls-files --others --exclude-standard 2>/dev/null; } \
+    | grep -vE '^(docs/tasks/|docs/task-board\.md$)' | sort -u
+}
+
+# tree_id — content hash of the working tree (tracked + untracked, .gitignore honored,
+# task artifacts excluded), via a throwaway index so the real one is never touched.
+tree_id() {
+  git rev-parse --git-dir >/dev/null 2>&1 || return 1
+  local idx rc; idx=$(mktemp) || return 1
+  cp "$(git rev-parse --git-path index)" "$idx" 2>/dev/null || rm -f "$idx"
+  GIT_INDEX_FILE="$idx" git add -A . >/dev/null 2>&1 \
+    && GIT_INDEX_FILE="$idx" git rm -r -q --cached --ignore-unmatch docs/tasks docs/task-board.md >/dev/null 2>&1 \
+    && GIT_INDEX_FILE="$idx" git write-tree 2>/dev/null
+  rc=$?; rm -f "$idx"; return $rc
+}
+TREE=$(tree_id) || TREE=""
+STAMP=$(git rev-parse --git-path harness-tests-pass 2>/dev/null) || STAMP=""
+REUSE=0
+if [ "$RUN_BOOT" -eq 1 ] && [ "$FRESH" -eq 0 ] && [ -n "$TREE" ] && [ -n "$STAMP" ] \
+   && [ "$(cat "$STAMP" 2>/dev/null)" = "$TREE" ]; then REUSE=1; fi
+
+# Test scope: affected only when it's safe — anything unsure → all.
+SCOPE=all; WHY=""; CHANGED=""
+if [ "$RUN_TESTS" -eq 1 ] && [ "$REUSE" -eq 0 ]; then
+  if [ "$ALL" -eq 1 ]; then WHY="--all"
+  elif [ -z "$BASE" ]; then WHY="no --base"
+  elif ! git rev-parse -q --verify "$BASE^{commit}" >/dev/null 2>&1; then WHY="base $BASE not found (shallow clone?)"
+  elif ! git merge-base --is-ancestor "$BASE" HEAD 2>/dev/null; then WHY="base $BASE is not an ancestor of HEAD"
+  else
+    CHANGED=$(changed_files "$BASE")
+    hit=$(printf '%s\n' "$CHANGED" | grep -E "$GLOBAL_INPUTS" | head -1)
+    if [ -n "$hit" ]; then WHY="shared input changed: $hit"
+    elif [ -z "$CHANGED" ]; then SCOPE=none; WHY="nothing changed since $(printf '%.12s' "$BASE")"
+    else SCOPE=affected; WHY="$(printf '%s\n' "$CHANGED" | wc -l | tr -d ' ') file(s) changed since $(printf '%.12s' "$BASE")"
+    fi
+  fi
+fi
 
 fail=0; n=0
 ok()  { printf '  ✓ %s\n' "$1"; n=$((n+1)); }
@@ -44,9 +120,30 @@ printf '\n=== A. Build / static ===\n'
 # {{TYPECHECK_CMD}} >/dev/null 2>&1 && ok "typecheck" || bad "typecheck"
 wired A
 
-if [ "$RUN_TESTS" -eq 1 ]; then
-  printf '\n=== B. Tests ===\n'
-  # {{TEST_CMD}} — assert zero skipped, capture counts for R-baseline.
+if [ "$REUSE" -eq 1 ]; then
+  printf '\n=== B. Tests (reused) ===\n'
+  ok "suite passed on this exact tree ($(printf '%.12s' "$TREE")) in an earlier run — --fresh re-runs it"
+  wired B
+elif [ "$RUN_TESTS" -eq 1 ]; then
+  printf '\n=== B. Tests (%s: %s) ===\n' "$SCOPE" "$WHY"
+  if [ "$SCOPE" = none ]; then
+    ok "no code changed since the base: no tests affected"
+  else
+    [ "$SCOPE" = affected ] && printf '%s\n' "$CHANGED" | head -20 | sed 's/^/    changed: /'
+    # ONE run, picked by scope. affected = changed + everything depending on it,
+    # transitively, computed by the stack's own graph tool against "$BASE":
+    #   all:      {{TEST_CMD}}
+    #   affected: {{AFFECTED_TEST_CMD}}
+    #     pnpm --filter "...[$BASE]" test · turbo run test --filter="...[$BASE]"
+    #     nx affected -t test --base="$BASE" · vitest run --changed "$BASE"
+    #     jest --changedSince="$BASE" · bun test --changed="$BASE"
+    #     go test ./... (its test cache already skips unaffected packages)
+    #     no graph tool for this stack → same as all; never fake a selection.
+    # if [ "$SCOPE" = affected ]; then out=$({{AFFECTED_TEST_CMD}} 2>&1); else out=$({{TEST_CMD}} 2>&1); fi; rc=$?
+    # [ "$rc" -eq 0 ] && ok "tests ($SCOPE)" || bad "tests ($SCOPE)" — then assert zero skipped,
+    # and print what the tool selected (packages/files) so reviewers see the scope.
+    :
+  fi
   wired B
 else
   printf '\n=== B skipped (--static) ===\n'
@@ -81,9 +178,17 @@ wired C
 printf '\n=== D. Workflow sync ===\n'
 bash harness/validate-workflow.sh >/dev/null 2>&1 && ok "workflow contracts in sync" || bad "workflow sync (run harness/validate-workflow.sh)"
 
+# Stamp (or clear) the test-reuse record — only a run that actually executed B.
+if [ "$RUN_TESTS" -eq 1 ] && [ "$REUSE" -eq 0 ] && [ -n "$STAMP" ]; then
+  if [ "$fail" -eq 0 ] && [ -n "$TREE" ]; then printf '%s\n' "$TREE" > "$STAMP"; else rm -f "$STAMP"; fi
+fi
+
 printf '\n'
-mode_label=""
-[ "$RUN_TESTS" -eq 0 ] && mode_label=" (static)"
-[ "$RUN_TESTS" -eq 1 ] && [ "$RUN_BOOT" -eq 0 ] && mode_label=" (no-boot)"
+label=""
+[ "$RUN_TESTS" -eq 0 ] && label="static"
+[ "$RUN_TESTS" -eq 1 ] && [ "$RUN_BOOT" -eq 0 ] && label="no-boot"
+[ "$REUSE" -eq 1 ] && label="tests reused"
+[ "$SCOPE" = affected ] && label="${label:+$label, }tests affected since $(printf '%.12s' "$BASE")"
+mode_label=""; [ -n "$label" ] && mode_label=" ($label)"
 if [ "$fail" -eq 0 ]; then printf 'VALIDATION%s: PASS\n' "$mode_label"; exit 0
 else printf 'VALIDATION%s: FAIL\n' "$mode_label"; exit 1; fi

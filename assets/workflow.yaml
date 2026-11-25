@@ -102,7 +102,7 @@ stages:
     next: done
     rollback:
       to: dev
-      when: functional failure, regression, or missing acceptance coverage
+      when: functional failure, regression in the change's blast radius, or missing acceptance coverage
 
   - id: done
     agent: pm
@@ -123,6 +123,15 @@ rules:
     `bash harness/validate.sh --static` (no tests, no boot),
     QA runs the FULL gate including the boot probe. Solo track: the main session runs
     the full gate itself — there the gate IS the independent verdict.
+  - Tests run on the AFFECTED set: every gate run on a task passes `--base <task.md Base>`
+    and B runs only what changed plus everything depending on it (the stack's graph tool);
+    no base, a non-ancestor base, or a shared-input change → the whole suite. CI passes
+    no base, so it always runs everything.
+  - The suite runs once too: dev's passing `--no-boot` stamps the working tree, and QA's
+    full gate reuses that test run when the code is byte-identical (task artifacts don't
+    count; CI always runs everything). QA tests THE CHANGE, not the system: its scope is
+    the acceptance criteria, the screens they tag, and the direct consumers of the diff
+    against task.md's Base — never a whole-app regression pass (roles/qa-tester.md).
   - Track choice is logged in task.md with the trigger that justified it. When solo/fast
     work turns out to hit a full-track trigger, the PM promotes the task (no demotions
     mid-task).

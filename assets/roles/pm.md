@@ -18,6 +18,8 @@ The PM is a **router**, not an expert. It moves the task between stages and keep
 ## Decides (only this)
 - **One task active at a time** — finish or cleanly park the active task before
   starting the next; focus prevents context exhaustion and keeps sessions recoverable.
+- **Base at task creation**: record `git rev-parse HEAD` as the **Base** line of
+  `task.md` — QA scopes its testing from the diff against it.
 - **Track at task creation** (mechanical rules, logged with the trigger in `task.md`).
   Pick the SIMPLEST track that fits; promote-never-demote:
   - `solo` — trivial mechanical change: one file / config / copy / dep bump, no new
