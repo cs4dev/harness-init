@@ -130,7 +130,10 @@ Required answers before writing anything frozen:
    cache does it already; no graph tool → the full suite, never a faked selection) —
    and the **shared inputs** that must run everything because no import graph sees
    them (test config/setup, test-DB scripts, schema/migrations, fixtures, code reached
-   over HTTP / DB tables / string keys).
+   over HTTP / DB tables / string keys, root files a package reads from outside its
+   own dir). Verify the runner's edges by editing one file and checking what runs:
+   `vitest --changed` follows imports across workspace packages, `bun test --changed`
+   doesn't (a dependent bun package needs its whole suite).
    Adapt B2 to the project type from Q0: server → boot + liveness probe; CLI → run the
    binary with a smoke arg and assert exit 0 + expected output; library → build + import
    smoke test. B2 always proves "it runs", whatever running means for this artifact.

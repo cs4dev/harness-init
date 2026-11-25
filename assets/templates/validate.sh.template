@@ -139,6 +139,12 @@ elif [ "$RUN_TESTS" -eq 1 ]; then
     #     jest --changedSince="$BASE" · bun test --changed="$BASE"
     #     go test ./... (its test cache already skips unaffected packages)
     #     no graph tool for this stack → same as all; never fake a selection.
+    #   VERIFY the runner's edges before trusting it (edit one file, see what runs):
+    #     vitest --changed follows imports into other workspace packages; bun test
+    #     --changed does NOT (it sees only its own package) — so a bun package whose
+    #     workspace dependency changed runs its WHOLE suite. Files outside every
+    #     package select nothing: root files a package reads (i18n, assets, fixtures)
+    #     belong in GLOBAL_INPUTS.
     # if [ "$SCOPE" = affected ]; then out=$({{AFFECTED_TEST_CMD}} 2>&1); else out=$({{TEST_CMD}} 2>&1); fi; rc=$?
     # [ "$rc" -eq 0 ] && ok "tests ($SCOPE)" || bad "tests ($SCOPE)" — then assert zero skipped,
     # and print what the tool selected (packages/files) so reviewers see the scope.
