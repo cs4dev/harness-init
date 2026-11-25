@@ -123,6 +123,17 @@ Required answers before writing anything frozen:
    its screens.
 4. **Commands** — typecheck/lint/test/build/run if not detectable from the repo or
    derivable from the Q0 stack answer (then just confirm them in the summary).
+   Plus the **affected-tests command** — the stack's own graph tool run against a base
+   commit: changed + everything depending on it, transitively (`nx affected -t test
+   --base=…`, `turbo run test --filter="...[…]"`, `pnpm --filter "...[…]" test`,
+   `vitest run --changed …`, `jest --changedSince=…`, `bun test --changed=…`; Go's test
+   cache does it already; no graph tool → the full suite, never a faked selection) —
+   and the **shared inputs** that must run everything because no import graph sees
+   them (test config/setup, test-DB scripts, schema/migrations, fixtures, code reached
+   over HTTP / DB tables / string keys, root files a package reads from outside its
+   own dir). Verify the runner's edges by editing one file and checking what runs:
+   `vitest --changed` follows imports across workspace packages, `bun test --changed`
+   doesn't (a dependent bun package needs its whole suite).
    Adapt B2 to the project type from Q0: server → boot + liveness probe; CLI → run the
    binary with a smoke arg and assert exit 0 + expected output; library → build + import
    smoke test. B2 always proves "it runs", whatever running means for this artifact.
@@ -236,7 +247,9 @@ every other file is independent once the sign-off is in. So:
   correctness core from interview Q2 (e.g. the frozen state machine + its tests) —
   and config files the C greps check. Nothing more: features stay tasks (T-001+),
   the skeleton just proves the gate's verdict is earned, not vacuous.
-- `harness/validate.sh` from skeleton — wire Categories A (build/static), B (tests),
+- `harness/validate.sh` from skeleton — wire Categories A (build/static), B (tests:
+  the full and the affected command from Q4, and the project's shared inputs into
+  `GLOBAL_INPUTS`),
   B2 (boot the runnable artifact + liveness probe; fail-not-skip; kill+wait cleanup),
   C (one grep per mechanically-checkable rule), D (calls validate-workflow.sh).
   chmod +x. The template FAILS until it is really filled: each category ends in
@@ -270,7 +283,7 @@ every other file is independent once the sign-off is in. So:
   builds a clickable static-HTML mockup AS the persona; the PM opens it for the human;
   feedback re-runs the designer), **then spec/design** — only after the human's
   explicit approval, with every criterion tagged with the screens that show it. QA
-  later walks the real app through the mockup as the persona. A small edit to an
+  later walks the real app through the task's touched screens as the persona. A small edit to an
   already-approved mockup (button, field, copy, a state on an existing screen) is a
   **patch**, not a task: the main session edits a copy (`docs/tasks/<id>/mockup.html`),
   marks the change `data-changed`, bumps `<meta name="mockup-version">` (v1 → v1.1),
@@ -279,9 +292,16 @@ every other file is independent once the sign-off is in. So:
   "Patching"). A new screen or flow is never a patch.
 - After dev, spawn reviewer and QA IN PARALLEL (one message, two sub-agents). Done
   requires both verdicts; either failure rolls back to dev and both re-run.
+- Every gate run on a task passes `--base <task.md Base>`: tests run only on the
+  AFFECTED set (changed + dependents), falling back to the whole suite on no base, a
+  non-ancestor base, or a shared-input change. CI passes no base → always everything.
 - ONE boot per task: dev runs `bash harness/validate.sh --no-boot`, reviewer `--static`, QA the
   FULL gate (the only boot). Solo track: the main session runs the full gate — there
   the gate is the verdict. No self-grading on fast/full.
+- The suite runs once per task too: a passing `--no-boot` stamps the tree, and QA's full
+  gate reuses it while the code is unchanged (`--fresh` forces a re-run; CI always runs
+  all). QA tests the CHANGE — criteria, the screens they tag, the diff's direct consumers
+  (task.md's **Base** line) — not the whole system.
 - Discipline that keeps loops recoverable: ONE task active at a time; the board is
   append-only (update status, never delete/reorder); out-of-scope bugs get logged to
   the board's Bugs section the moment they're found (fix or defer as a task, never

@@ -91,6 +91,42 @@ edit "$d/harness/validate.sh" '/\{\{/d; s/^([[:space:]]*)wired (A|B|B2|C)$/\1ok 
 expect pass "filled template passes (full)"     bash "$d/harness/validate.sh"
 expect pass "filled template passes --no-boot"  bash "$d/harness/validate.sh" --no-boot
 expect pass "filled template passes --static"   bash "$d/harness/validate.sh" --static
+expect fail "unknown argument is rejected"      bash "$d/harness/validate.sh" --bogus
+# Test scope + reuse. b_scope <label> <want> [args…] — which B header did the gate
+# print? want: reused | all | affected | none.
+b_scope() {
+  local label=$1 want=$2 got; shift 2
+  got=$(bash "$d/harness/validate.sh" "$@" 2>&1 | sed -nE 's/^=== B\. Tests \(([a-z]+).*/\1/p' | head -1)
+  [ "$got" = "$want" ] && ok "$label" || bad "$label (expected B $want, got ${got:-no B header})"
+}
+gq() { git -C "$d" -c user.name=t -c user.email=t@t "$@" >/dev/null 2>&1; }
+gq init -q; gq add -A; gq commit -q -m base; base=$(git -C "$d" rev-parse HEAD)
+# Affected selection — falls back to the whole suite whenever it can't be sure.
+b_scope "no --base → whole suite"                          all --no-boot
+b_scope "--base, nothing changed → no tests affected"      none --no-boot --base "$base"
+mkdir -p "$d/src"; echo c > "$d/src/feature-c.ts"; gq add -A; gq commit -q -m c
+b_scope "committed code change → affected since base"      affected --no-boot --base "$base"
+HARNESS_BASE=$base b_scope "HARNESS_BASE env → affected"   affected --no-boot
+echo u > "$d/src/untracked.ts"
+out=$(bash "$d/harness/validate.sh" --no-boot --base "$base" 2>&1)
+printf '%s\n' "$out" | grep -q 'changed: src/untracked.ts' \
+  && ok "untracked files count as changed" || bad "untracked file missed by the affected scope"
+b_scope "--all overrides the base"                         all --no-boot --base "$base" --all
+b_scope "unknown base → whole suite"                       all --no-boot --base deadbeef
+echo lock > "$d/pnpm-lock.yaml"
+b_scope "shared input (lockfile) → whole suite"            all --no-boot --base "$base"
+rm "$d/pnpm-lock.yaml"
+expect fail "--base without a commit is rejected"          bash "$d/harness/validate.sh" --base
+# Reuse: QA's full gate reuses dev's passing run while the code is byte-identical;
+# task artifacts don't count, code edits and --fresh do.
+bash "$d/harness/validate.sh" --no-boot --base "$base" >/dev/null 2>&1
+b_scope "after a passing --no-boot → full gate reuses B"   reused --base "$base"
+mkdir -p "$d/docs/tasks/T-001"; echo report > "$d/docs/tasks/T-001/qa-report.md"
+b_scope "a task artifact written → still reused"           reused --base "$base"
+b_scope "--fresh → suite re-runs"                          affected --fresh --base "$base"
+echo edit >> "$d/src/feature-c.ts"
+b_scope "a code edit → suite re-runs"                      affected --base "$base"
+[ -z "$(git -C "$d" diff --cached --name-only)" ] && ok "tree hash leaves the real index untouched" || bad "tree hash staged files"
 printf '# SPEC — {{PROJECT_NAME}}\n' > "$d/SPEC.md"
 expect fail "placeholder left in SPEC.md fails the gate" bash "$d/harness/validate.sh" --static
 rm "$d/SPEC.md"; edit "$d/harness/validate.sh" 's/^ok "C check"; wired C$/wired C/'

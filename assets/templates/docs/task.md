@@ -2,6 +2,8 @@
 
 **Raw request:** <verbatim user ask + owner decisions already made>
 
+**Base:** <`git rev-parse HEAD` at task creation — QA's scope is the diff against it>
+
 **Track:** <solo|fast|full> — <the mechanical trigger that justified it>
 
 **UI change:** <no — no screen or flow changes | yes — <the screen/flow it changes>>

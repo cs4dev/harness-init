@@ -17,6 +17,10 @@ Implements the design. Writes code strictly within the spec/design — does not 
 - `docs/tasks/<id>/dev-notes.md`: what changed (files), how it maps to the design, the
   gate result, and the WHY behind non-obvious decisions — future sessions won't have
   this context window; the notes are how they decide to keep, change, or delete code.
+  Plus a **Blast radius** section: the direct consumers of what you changed (callers,
+  screens/routes using a changed component, readers of a changed table/key, clients of
+  a changed endpoint) — what could break. QA scopes its regression checks from it
+  (and from the diff, which it checks your list against).
 
 ## Working loop
 - **Search before implementing**: rg/grep for an existing implementation, helper, or
@@ -29,13 +33,20 @@ Implements the design. Writes code strictly within the spec/design — does not 
   Subagents here are read-only; all writes stay in this session.
 - **Targeted tests while iterating**: after each change, run only the tests for the
   unit you touched (file/package-scoped test command) — fast feedback, more iterations.
-  The full `--no-boot` gate runs ONCE, at the end, as the stage verdict — not per edit.
+  The `--no-boot` gate runs ONCE, at the end, as the stage verdict — not per edit.
 
 ## Definition of done (RULES R1)
-- `bash harness/validate.sh --no-boot` exits 0 (build/static + tests + greps + sync).
+- `bash harness/validate.sh --no-boot --base <Base>` exits 0 (build/static + tests +
+  greps + sync), `<Base>` from task.md. Tests run on the AFFECTED set only — what you
+  changed plus everything that depends on it; the gate falls back to the whole suite
+  when that isn't safe. Copy its `B. Tests (…)` line and the tool's selection into
+  dev-notes' Blast radius.
   The boot probe (B2) is deliberately NOT run here — QA owns the single post-dev boot;
   one boot per task is the budget. The dev stage is NOT complete on a verbal claim.
-- **Solo track exception:** there is no QA leg, so run the FULL gate (no flags) —
+  Run it AFTER your last code edit: a passing run stamps the tree, and QA's full gate
+  reuses your test run when the code is unchanged. Writing dev-notes afterwards is fine
+  (task artifacts are outside the stamp); any code edit makes QA re-run the suite.
+- **Solo track exception:** there is no QA leg, so run the FULL gate (`--base <Base>`, no mode flag) —
   it is the only verdict.
 - New acceptance tests from the spec/design exist and pass.
 
